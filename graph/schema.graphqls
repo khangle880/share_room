@@ -1,0 +1,171 @@
+# GraphQL schema example
+#
+# https://gqlgen.com/getting-started/
+
+enum UserRoleEnum {
+  ADMIN
+  ROOMMATE
+  CAPTAIN
+}
+
+enum CategoryTypeEnum {
+  INCOME
+  OUTCOME
+}
+
+scalar Time
+scalar UUID
+
+"""
+Budget type definition
+"""
+type Budget {
+  id: UUID!
+  name: String!
+  description: String
+  balance: Int!
+  transactions: [Transaction!]!
+  icon: Icon!
+  members: [User!]!
+  createdAt: Time!
+  updatedAt: Time
+}
+"""
+Transaction type definition
+"""
+type Transaction {
+  id: UUID!
+  category: Category!
+  description: String
+  time: Time!
+  budget: Budget!
+  creators: [User!]!
+  partners: [User!]
+  event: Event
+  images: [String!]
+  createdAt: Time!
+  updatedAt: Time
+}
+"""
+Event type definition
+"""
+type Event {
+  id: UUID!
+  name: String!
+  description: String!
+  icon: Icon!
+  background: String
+  createdAt: Time!
+  updatedAt: Time
+}
+"""
+Category type definition
+"""
+type Category {
+  id: UUID!
+  name: String!
+  type: CategoryTypeEnum!
+  icon: Icon!
+  parent: Category
+  createdAt: Time!
+  updatedAt: Time
+}
+"""
+Icon type definition
+"""
+type Icon {
+  id: UUID!
+  name: String!
+  url: String!
+  type: String
+  createdAt: Time!
+  updatedAt: Time
+}
+"""
+User type definition
+"""
+type User {
+  id: UUID!
+  username: String!
+  hashedPassword: String!
+  email: String
+  phone: String
+  firstName: String
+  lastName: String
+  role: UserRoleEnum!
+  bio: String
+  avatar: String
+  createdAt: Time!
+  updatedAt: Time
+}
+
+"""
+Query
+"""
+type Query {
+  users(role: UserRoleEnum!): [User!]!
+  categories: [Category!]!
+}
+
+"""
+Input
+"""
+input CreateUserInput {
+  username: String!
+  password: String!
+  email: String
+  phone: String
+  firstName: String
+  lastName: String
+  role: UserRoleEnum = CAPTAIN
+  bio: String
+  avatar: String
+}
+
+input CreateIconInput {
+  name: String!
+  url: String!
+}
+
+input CreateCategoryInput {
+  name: String!
+  type: CategoryTypeEnum!
+  iconID: UUID!
+  parentID: UUID
+}
+
+input CreateEventInput {
+  name: String!
+  description: String!
+  iconID: UUID!
+  background: String
+}
+
+input CreateBudgetInput {
+  name: String!
+  description: String
+  balance: Int!
+  transactionIDs: [UUID!]
+  iconID: UUID!
+  memberIDs: [UUID!]
+}
+
+input CreateTransInput {
+  CategoryID: UUID!
+  description: String
+  time: Time!
+  budgetID: UUID!
+  creatorIDs: [UUID!]!
+  partnerIDs: [UUID!]
+  eventID: UUID
+  images: [String!]
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): User!
+  createIcon(input: CreateIconInput!): Icon!
+  createCategory(input: CreateCategoryInput!): Category!
+  createEvent(input: CreateEventInput!): Event!
+  createBudget(input: CreateBudgetInput!): Budget!
+  createTransaction(input: CreateTransInput!): Transaction!
+}
