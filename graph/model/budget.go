@@ -1,22 +1,21 @@
 package model
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Budget type definition
 type Budget struct {
-	ID             uuid.UUID      `json:"id"`
-	Name           string         `json:"name"`
-	Description    *string        `json:"description,omitempty"`
-	Balance        int            `json:"balance"`
-	TransactionIDs []uuid.UUID    `json:"transactionIDs,omitempty"`
-	Transactions   []*Transaction `json:"transactions,omitempty"`
-	IconID         uuid.UUID      `json:"iconID"`
-	Icon           *Icon          `json:"icon"`
-	MemberIDs      []uuid.UUID    `json:"memberIDs,omitempty"`
-	Members        []*User        `json:"members,omitempty"`
-	CreatedAt      time.Time      `json:"createdAt"`
-	UpdatedAt      *time.Time     `json:"updatedAt,omitempty"`
+	ID          uuid.UUID   `json:"id"`
+	Name        string      `json:"name"`
+	Description *string     `json:"description,omitempty"`
+	Balance     int         `json:"balance" pg:",use_zero"`
+	IconId      uuid.UUID   `json:"iconId"`
+	MemberIds   []uuid.UUID `json:"memberIds,omitempty" pg:",array"`
+	RoomId      *uuid.UUID  `json:"roomId,omitempty"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   *time.Time  `json:"updatedAt,omitempty"`
+	DeletedAt   *time.Time  `json:"-" pg:",soft_delete"`
 }

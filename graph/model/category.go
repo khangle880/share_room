@@ -11,10 +11,9 @@ type Category struct {
 	ID        uuid.UUID        `json:"id"`
 	Name      string           `json:"name"`
 	Type      CategoryTypeEnum `json:"type"`
-	IconID    uuid.UUID       `json:"iconID"`
-	Icon      *Icon            `json:"icon"`
-	ParentID  *uuid.UUID       `json:"parentID,omitempty"`
-	Parent    *Category        `json:"parent,omitempty"`
+	IconId    uuid.UUID        `json:"iconId"`
+	ParentId  *uuid.UUID       `json:"parentId,omitempty"`
 	CreatedAt time.Time        `json:"createdAt"`
 	UpdatedAt *time.Time       `json:"updatedAt,omitempty"`
+	DeletedAt *time.Time       `json:"-" pg:",soft_delete"`
 }

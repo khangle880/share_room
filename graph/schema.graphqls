@@ -1,6 +1,8 @@
 # GraphQL schema example
 #
 # https://gqlgen.com/getting-started/
+# new directive
+directive @auth on FIELD_DEFINITION
 
 enum UserRoleEnum {
   ADMIN
@@ -16,6 +18,12 @@ enum CategoryTypeEnum {
 scalar Time
 scalar UUID
 
+type Token{
+  accessToken: String,
+  refreshToken: String,
+  user: User
+}
+
 """
 Budget type definition
 """
@@ -27,6 +35,19 @@ type Budget {
   transactions: [Transaction!]!
   icon: Icon!
   members: [User!]!
+  room: Room
+  createdAt: Time!
+  updatedAt: Time
+}
+"""
+Room type definition
+"""
+type Room {
+  id: UUID!
+  name: String!
+  captain: User!
+  avatar: String
+  background: String
   createdAt: Time!
   updatedAt: Time
 }
@@ -88,15 +109,22 @@ type User {
   id: UUID!
   username: String!
   hashedPassword: String!
-  email: String
+  email: String!
   phone: String
-  firstName: String
-  lastName: String
+  firstname: String
+  lastname: String
   role: UserRoleEnum!
   bio: String
   avatar: String
   createdAt: Time!
   updatedAt: Time
+}
+"""
+Query Input
+"""
+input BudgetFilter {
+  name: String
+  description: String
 }
 
 """
@@ -104,7 +132,12 @@ Query
 """
 type Query {
   users(role: UserRoleEnum!): [User!]!
-  categories: [Category!]!
+  categories(
+    filter: BudgetFilter
+    limit: Int = 10
+    offset: Int = 0
+  ): [Category!]!
+  budgets: [Budget!]! @auth
 }
 
 """
@@ -113,10 +146,10 @@ Input
 input CreateUserInput {
   username: String!
   password: String!
-  email: String
+  email: String!
   phone: String
-  firstName: String
-  lastName: String
+  firstname: String
+  lastname: String
   role: UserRoleEnum = CAPTAIN
   bio: String
   avatar: String
@@ -145,8 +178,17 @@ input CreateBudgetInput {
   name: String!
   description: String
   balance: Int!
-  transactionIDs: [UUID!]
   iconID: UUID!
+  roomID: UUID
+  memberIDs: [UUID!]
+}
+
+input UpdateBudgetInput {
+  name: String
+  description: String
+  balance: Int
+  iconID: UUID
+  roomID: UUID
   memberIDs: [UUID!]
 }
 
@@ -162,10 +204,13 @@ input CreateTransInput {
 }
 
 type Mutation {
-  createUser(input: CreateUserInput!): User!
+  login(email: String!, password: String!): Token!
+  register(input: CreateUserInput!): Token!
   createIcon(input: CreateIconInput!): Icon!
   createCategory(input: CreateCategoryInput!): Category!
   createEvent(input: CreateEventInput!): Event!
-  createBudget(input: CreateBudgetInput!): Budget!
+  createBudget(input: CreateBudgetInput!): Budget! @auth
   createTransaction(input: CreateTransInput!): Transaction!
+  updateBudget(id: UUID!, input: UpdateBudgetInput!): Budget!
+  deleteBudget(id: UUID!): Boolean!
 }

@@ -11,13 +11,19 @@ import (
 	"github.com/google/uuid"
 )
 
+// Query Input
+type BudgetFilter struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
 type CreateBudgetInput struct {
-	Name           string      `json:"name"`
-	Description    *string     `json:"description,omitempty"`
-	Balance        int         `json:"balance"`
-	TransactionIDs []uuid.UUID `json:"transactionIDs,omitempty"`
-	IconID         uuid.UUID   `json:"iconID"`
-	MemberIDs      []uuid.UUID `json:"memberIDs,omitempty"`
+	Name        string      `json:"name"`
+	Description *string     `json:"description,omitempty"`
+	Balance     int         `json:"balance"`
+	IconID      uuid.UUID   `json:"iconID"`
+	RoomID      *uuid.UUID  `json:"roomID,omitempty"`
+	MemberIDs   []uuid.UUID `json:"memberIDs,omitempty"`
 }
 
 type CreateCategoryInput struct {
@@ -54,39 +60,28 @@ type CreateTransInput struct {
 type CreateUserInput struct {
 	Username  string        `json:"username"`
 	Password  string        `json:"password"`
-	Email     *string       `json:"email,omitempty"`
+	Email     string        `json:"email"`
 	Phone     *string       `json:"phone,omitempty"`
-	FirstName *string       `json:"firstName,omitempty"`
-	LastName  *string       `json:"lastName,omitempty"`
+	Firstname *string       `json:"firstname,omitempty"`
+	Lastname  *string       `json:"lastname,omitempty"`
 	Role      *UserRoleEnum `json:"role,omitempty"`
 	Bio       *string       `json:"bio,omitempty"`
 	Avatar    *string       `json:"avatar,omitempty"`
 }
 
-// Icon type definition
-type Icon struct {
-	ID        uuid.UUID  `json:"id"`
-	Name      string     `json:"name"`
-	URL       string     `json:"url"`
-	Type      *string    `json:"type,omitempty"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+type Token struct {
+	AccessToken  *string `json:"accessToken,omitempty"`
+	RefreshToken *string `json:"refreshToken,omitempty"`
+	User         *User   `json:"user,omitempty"`
 }
 
-// User type definition
-type User struct {
-	ID             uuid.UUID    `json:"id"`
-	Username       string       `json:"username"`
-	HashedPassword string       `json:"hashedPassword"`
-	Email          *string      `json:"email,omitempty"`
-	Phone          *string      `json:"phone,omitempty"`
-	FirstName      *string      `json:"firstName,omitempty"`
-	LastName       *string      `json:"lastName,omitempty"`
-	Role           UserRoleEnum `json:"role"`
-	Bio            *string      `json:"bio,omitempty"`
-	Avatar         *string      `json:"avatar,omitempty"`
-	CreatedAt      time.Time    `json:"createdAt"`
-	UpdatedAt      *time.Time   `json:"updatedAt,omitempty"`
+type UpdateBudgetInput struct {
+	Name        *string     `json:"name,omitempty"`
+	Description *string     `json:"description,omitempty"`
+	Balance     *int        `json:"balance,omitempty"`
+	IconID      *uuid.UUID  `json:"iconID,omitempty"`
+	RoomID      *uuid.UUID  `json:"roomID,omitempty"`
+	MemberIDs   []uuid.UUID `json:"memberIDs,omitempty"`
 }
 
 type CategoryTypeEnum string
