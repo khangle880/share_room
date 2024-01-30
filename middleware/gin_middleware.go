@@ -1,11 +1,20 @@
-package utils
+package middleware
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
+
+func GinContextToContextMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := context.WithValue(c.Request.Context(), "GinContextKey", c)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
 
 func GinContextFromContext(ctx context.Context) (*gin.Context, error) {
 	ginContext := ctx.Value("GinContextKey")

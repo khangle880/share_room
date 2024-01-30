@@ -46,3 +46,14 @@ func (r *UsersRepo) CreateUser(tx *pg.Tx,user *model.User) (*model.User, error) 
 
 	return user, err
 }
+
+func (r *UsersRepo) UpdateUser(tx *pg.Tx,user *model.User) (*model.User, error) {
+	_, err := tx.Model(user).Returning("*").Insert()
+
+	return user, err
+}
+
+func (r *UsersRepo) DeleteUser(user *model.User) error {
+	_, err := r.DB.Model(user).Where("id = ?", user.ID).Delete()
+	return err
+}

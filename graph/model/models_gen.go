@@ -3,12 +3,10 @@
 package model
 
 import (
-	"fmt"
-	"io"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/khangle880/share_room/pg"
 )
 
 // Query Input
@@ -20,17 +18,17 @@ type BudgetFilter struct {
 type CreateBudgetInput struct {
 	Name        string      `json:"name"`
 	Description *string     `json:"description,omitempty"`
-	Balance     int         `json:"balance"`
+	Amount      float64     `json:"Amount"`
 	IconID      uuid.UUID   `json:"iconID"`
 	RoomID      *uuid.UUID  `json:"roomID,omitempty"`
 	MemberIDs   []uuid.UUID `json:"memberIDs,omitempty"`
 }
 
 type CreateCategoryInput struct {
-	Name     string           `json:"name"`
-	Type     CategoryTypeEnum `json:"type"`
-	IconID   uuid.UUID        `json:"iconID"`
-	ParentID *uuid.UUID       `json:"parentID,omitempty"`
+	Name     string          `json:"name"`
+	Type     pg.CategoryType `json:"type"`
+	IconID   uuid.UUID       `json:"iconID"`
+	ParentID *uuid.UUID      `json:"parentID,omitempty"`
 }
 
 type CreateEventInput struct {
@@ -58,112 +56,52 @@ type CreateTransInput struct {
 
 // Input
 type CreateUserInput struct {
-	Username  string        `json:"username"`
-	Password  string        `json:"password"`
-	Email     string        `json:"email"`
-	Phone     *string       `json:"phone,omitempty"`
-	Firstname *string       `json:"firstname,omitempty"`
-	Lastname  *string       `json:"lastname,omitempty"`
-	Role      *UserRoleEnum `json:"role,omitempty"`
-	Bio       *string       `json:"bio,omitempty"`
-	Avatar    *string       `json:"avatar,omitempty"`
+	Username  string       `json:"username"`
+	Password  string       `json:"password"`
+	Email     string       `json:"email"`
+	Phone     *string      `json:"phone,omitempty"`
+	Firstname *string      `json:"firstname,omitempty"`
+	Lastname  *string      `json:"lastname,omitempty"`
+	Role      *pg.UserRole `json:"role,omitempty"`
+	Bio       *string      `json:"bio,omitempty"`
+	Avatar    *string      `json:"avatar,omitempty"`
+}
+
+// Event type definition
+type Event struct {
+	ID          uuid.UUID  `json:"id"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+	DeletedAt   *time.Time `json:"deletedAt,omitempty"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Icon        *pg.Icon   `json:"icon"`
+	Background  *string    `json:"background,omitempty"`
 }
 
 type Token struct {
-	AccessToken  *string `json:"accessToken,omitempty"`
-	RefreshToken *string `json:"refreshToken,omitempty"`
-	User         *User   `json:"user,omitempty"`
+	AccessToken  *string  `json:"accessToken,omitempty"`
+	RefreshToken *string  `json:"refreshToken,omitempty"`
+	User         *pg.User `json:"user,omitempty"`
 }
 
 type UpdateBudgetInput struct {
 	Name        *string     `json:"name,omitempty"`
 	Description *string     `json:"description,omitempty"`
-	Balance     *int        `json:"balance,omitempty"`
+	Amount      *float64    `json:"Amount,omitempty"`
 	IconID      *uuid.UUID  `json:"iconID,omitempty"`
 	RoomID      *uuid.UUID  `json:"roomID,omitempty"`
 	MemberIDs   []uuid.UUID `json:"memberIDs,omitempty"`
 }
 
-type CategoryTypeEnum string
-
-const (
-	CategoryTypeEnumIncome  CategoryTypeEnum = "INCOME"
-	CategoryTypeEnumOutcome CategoryTypeEnum = "OUTCOME"
-)
-
-var AllCategoryTypeEnum = []CategoryTypeEnum{
-	CategoryTypeEnumIncome,
-	CategoryTypeEnumOutcome,
-}
-
-func (e CategoryTypeEnum) IsValid() bool {
-	switch e {
-	case CategoryTypeEnumIncome, CategoryTypeEnumOutcome:
-		return true
-	}
-	return false
-}
-
-func (e CategoryTypeEnum) String() string {
-	return string(e)
-}
-
-func (e *CategoryTypeEnum) UnmarshalGQL(v interface{}) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = CategoryTypeEnum(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid CategoryTypeEnum", str)
-	}
-	return nil
-}
-
-func (e CategoryTypeEnum) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-type UserRoleEnum string
-
-const (
-	UserRoleEnumAdmin    UserRoleEnum = "ADMIN"
-	UserRoleEnumRoommate UserRoleEnum = "ROOMMATE"
-	UserRoleEnumCaptain  UserRoleEnum = "CAPTAIN"
-)
-
-var AllUserRoleEnum = []UserRoleEnum{
-	UserRoleEnumAdmin,
-	UserRoleEnumRoommate,
-	UserRoleEnumCaptain,
-}
-
-func (e UserRoleEnum) IsValid() bool {
-	switch e {
-	case UserRoleEnumAdmin, UserRoleEnumRoommate, UserRoleEnumCaptain:
-		return true
-	}
-	return false
-}
-
-func (e UserRoleEnum) String() string {
-	return string(e)
-}
-
-func (e *UserRoleEnum) UnmarshalGQL(v interface{}) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = UserRoleEnum(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid UserRoleEnum", str)
-	}
-	return nil
-}
-
-func (e UserRoleEnum) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+type UpdateUserInput struct {
+	Username  *string      `json:"username,omitempty"`
+	Password  *string      `json:"password,omitempty"`
+	Email     string       `json:"email"`
+	Phone     *string      `json:"phone,omitempty"`
+	Firstname *string      `json:"firstname,omitempty"`
+	Lastname  *string      `json:"lastname,omitempty"`
+	Role      *pg.UserRole `json:"role,omitempty"`
+	Bio       *string      `json:"bio,omitempty"`
+	Avatar    *string      `json:"avatar,omitempty"`
 }

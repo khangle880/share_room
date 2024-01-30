@@ -5,20 +5,22 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-pg/pg/v10"
+	"github.com/google/uuid"
 	"github.com/khangle880/share_room/graph/model"
+	"github.com/khangle880/share_room/utils"
 )
 
 type loaderKey string
 
-func DataLoaderMiddleware(db *pg.DB) gin.HandlerFunc {
+func DataLoaderMiddleware(db *database.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userloader := &UserLoader{
 			wait:     1 * time.Millisecond,
 			maxBatch: 100,
 			fetch: func(keys []string) ([]*model.User, []error) {
-				var users []*model.User
-				err := db.Model(&users).Where("id in (?)", pg.In(keys)).Select()
+				users, err := db.GetUsersByIDs(c.Request.Context(), utils.ConvertList(keys, func(key string) uuid.UUID {
+					return uuid.MustParse(key)
+				}))
 				return users, []error{err}
 			},
 		}

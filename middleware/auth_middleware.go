@@ -8,13 +8,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/khangle880/share_room/graph/model"
-	"github.com/khangle880/share_room/postgres/query"
 	"github.com/khangle880/share_room/utils"
 )
 
 type authUser string
 
-func AuthMiddleware(repo query.UsersRepo) gin.HandlerFunc {
+func AuthMiddleware(db *database.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth := c.Request.Header.Get("Authorization")
 		if auth == "" {
@@ -35,12 +34,12 @@ func AuthMiddleware(repo query.UsersRepo) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		user, err := repo.GetUserByID(customClaims.ID)
+		user, err := db.GetUserByID(c.Request.Context(), customClaims.ID)
 		if err != nil {
 			c.Next()
 			return
 		}
-		ctx := context.WithValue(c.Request.Context(), authUser("auth"), user)
+		ctx := context.WithValue(c.Request.Context(), authUser("auth"), user.ToModel())
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}

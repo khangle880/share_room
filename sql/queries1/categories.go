@@ -50,3 +50,8 @@ func (r *CategoriesRepo) CreateCategory(category *model.Category) (*model.Catego
 
 	return category, err
 }
+
+func (r *CategoriesRepo) DeleteCategory(category *model.Category) error {
+	_, err := r.DB.Model(category).Where("id = ?", category.ID).Delete()
+	return err;
+}

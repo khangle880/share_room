@@ -3,17 +3,16 @@
 # https://gqlgen.com/getting-started/
 # new directive
 directive @auth on FIELD_DEFINITION
+directive @hasRole(role: UserRole!) on FIELD_DEFINITION
 
-enum UserRoleEnum {
-  ADMIN
-  ROOMMATE
-  CAPTAIN
-}
-
-enum CategoryTypeEnum {
-  INCOME
-  OUTCOME
-}
+enum UserRole {admin user}
+enum RoomRole {admin member}
+enum TaskRole {assignee reviewer creator}
+enum TransRole {creator partner}
+enum BudgetRole {owner contributor}
+enum PeriodType {weekly monthly yearly}
+enum StatusType {pending in_progress completed}
+enum CategoryType {expense income}
 
 scalar Time
 scalar UUID
@@ -29,95 +28,120 @@ Budget type definition
 """
 type Budget {
   id: UUID!
+  createdAt: Time!
+  updatedAt: Time!
+  deletedAt: Time
   name: String!
   description: String
-  balance: Int!
-  transactions: [Transaction!]!
+  amount: Float!
   icon: Icon!
-  members: [User!]!
   room: Room
-  createdAt: Time!
-  updatedAt: Time
+  period: PeriodType
+  startDate: Time!
+  end_date: Time
+  transactions: [Transaction!]!
+  members: [User!]!
 }
 """
 Room type definition
 """
 type Room {
   id: UUID!
+  createdAt: Time!
+  updatedAt: Time!
+  deletedAt: Time
   name: String!
-  captain: User!
+  address: String
+  admin: User!
+  member: [User!]!
   avatar: String
   background: String
-  createdAt: Time!
-  updatedAt: Time
 }
 """
 Transaction type definition
 """
 type Transaction {
   id: UUID!
+  createdAt: Time!
+  updatedAt: Time!
+  deletedAt: Time
   category: Category!
-  description: String
-  time: Time!
   budget: Budget!
+  event: Event
+  description: String
+  excTime: Time!
   creators: [User!]!
   partners: [User!]
-  event: Event
+  amount: Float!
   images: [String!]
-  createdAt: Time!
-  updatedAt: Time
 }
 """
 Event type definition
 """
 type Event {
   id: UUID!
+  createdAt: Time!
+  updatedAt: Time!
+  deletedAt: Time
   name: String!
   description: String!
   icon: Icon!
   background: String
-  createdAt: Time!
-  updatedAt: Time
 }
 """
 Category type definition
 """
 type Category {
   id: UUID!
+  createdAt: Time!
+  updatedAt: Time!
+  deletedAt: Time
   name: String!
-  type: CategoryTypeEnum!
+  type: CategoryType!
   icon: Icon!
   parent: Category
-  createdAt: Time!
-  updatedAt: Time
 }
 """
 Icon type definition
 """
 type Icon {
   id: UUID!
+  createdAt: Time!
+  updatedAt: Time!
+  deletedAt: Time
   name: String!
   url: String!
   type: String
-  createdAt: Time!
-  updatedAt: Time
 }
 """
 User type definition
 """
 type User {
   id: UUID!
+  createdAt: Time!
+  updatedAt: Time!
+  deletedAt: Time
+  lastLoginAt: Time!
   username: String!
   hashedPassword: String!
   email: String!
-  phone: String
+}
+
+"""
+Profile type definition
+"""
+type Profile {
+  id: UUID!
+  createdAt: Time!
+  updatedAt: Time!
+  deletedAt: Time
+  role: UserRole!
   firstname: String
   lastname: String
-  role: UserRoleEnum!
+  dob: Time
   bio: String
   avatar: String
-  createdAt: Time!
-  updatedAt: Time
+  phone: String
 }
 """
 Query Input
@@ -131,13 +155,26 @@ input BudgetFilter {
 Query
 """
 type Query {
-  users(role: UserRoleEnum!): [User!]!
-  categories(
-    filter: BudgetFilter
-    limit: Int = 10
-    offset: Int = 0
-  ): [Category!]!
-  budgets: [Budget!]! @auth
+  users(role: UserRole!): [User!]!
+  # categories(
+  #   filter: BudgetFilter
+  #   limit: Int = 10
+  #   offset: Int = 0
+  # ): [Category!]!
+  # budgets: [Budget!]! @auth
+}
+
+type Mutation {
+  login(email: String!, password: String!): Token!
+  register(input: CreateUserInput!): Token!
+  # createIcon(input: CreateIconInput!): Icon!
+  # createEvent(input: CreateEventInput!): Event!
+  # createCategory(input: CreateCategoryInput!): Category!
+  # createBudget(input: CreateBudgetInput!): Budget! @auth
+  # createTransaction(input: CreateTransInput!): Transaction!
+  # updateBudget(id: UUID!, input: UpdateBudgetInput!): Budget!
+  # deleteBudget(id: UUID!): Boolean! 
+  # deleteUser(id: UUID!): Boolean! @hasRole(role: ADMIN)
 }
 
 """
@@ -150,7 +187,19 @@ input CreateUserInput {
   phone: String
   firstname: String
   lastname: String
-  role: UserRoleEnum = CAPTAIN
+  role: UserRole = USER
+  bio: String
+  avatar: String
+}
+
+input UpdateUserInput {
+  username: String
+  password: String
+  email: String!
+  phone: String
+  firstname: String
+  lastname: String
+  role: UserRole = USER
   bio: String
   avatar: String
 }
@@ -162,7 +211,7 @@ input CreateIconInput {
 
 input CreateCategoryInput {
   name: String!
-  type: CategoryTypeEnum!
+  type: CategoryType!
   iconID: UUID!
   parentID: UUID
 }
@@ -177,7 +226,7 @@ input CreateEventInput {
 input CreateBudgetInput {
   name: String!
   description: String
-  balance: Int!
+  Amount: Float!
   iconID: UUID!
   roomID: UUID
   memberIDs: [UUID!]
@@ -186,7 +235,7 @@ input CreateBudgetInput {
 input UpdateBudgetInput {
   name: String
   description: String
-  balance: Int
+  Amount: Float
   iconID: UUID
   roomID: UUID
   memberIDs: [UUID!]
@@ -201,16 +250,4 @@ input CreateTransInput {
   partnerIDs: [UUID!]
   eventID: UUID
   images: [String!]
-}
-
-type Mutation {
-  login(email: String!, password: String!): Token!
-  register(input: CreateUserInput!): Token!
-  createIcon(input: CreateIconInput!): Icon!
-  createCategory(input: CreateCategoryInput!): Category!
-  createEvent(input: CreateEventInput!): Event!
-  createBudget(input: CreateBudgetInput!): Budget! @auth
-  createTransaction(input: CreateTransInput!): Transaction!
-  updateBudget(id: UUID!, input: UpdateBudgetInput!): Budget!
-  deleteBudget(id: UUID!): Boolean!
 }

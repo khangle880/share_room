@@ -16,7 +16,7 @@ import (
 var once sync.Once
 var log zerolog.Logger
 
-func Get() zerolog.Logger {
+func GetLog() *zerolog.Logger {
 	once.Do(func() {
 		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 		zerolog.TimeFieldFormat = time.RFC3339
@@ -62,5 +62,5 @@ func Get() zerolog.Logger {
 		log = zerolog.New(output).Level(zerolog.Level(logLevel)).With().Timestamp().
 			Str("git_revision", gitRevision).Str("go_version", buildInfo.GoVersion).Logger()
 	})
-	return log
+	return &log
 }
