@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -9,8 +8,9 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
+	"github.com/khangle880/share_room/dataloaders"
 	"github.com/khangle880/share_room/graph"
-	"github.com/khangle880/share_room/graph/dataloader"
+	"github.com/khangle880/share_room/pg"
 	"github.com/khangle880/share_room/utils"
 	sqldblogger "github.com/simukti/sqldb-logger"
 	"github.com/simukti/sqldb-logger/logadapter/zerologadapter"
@@ -20,15 +20,12 @@ import (
 
 const defaultPort = "8080"
 
-type ApiConfig struct {
-	*database.Queries
-}
-
 // Defining the Graphql handler
-func graphqlHandler(db *database.Queries) gin.HandlerFunc {
+func graphqlHandler(repo *pg.RepoSvc, dataloader dataloaders.Retriever) gin.HandlerFunc {
 	utils.GetLog()
 	c := graph.Config{Resolvers: &graph.Resolver{
-		DBQueries: db,
+		Repository:  repo,
+		DataLoaders: dataloader,
 	}}
 	c.Directives.Auth = graph.Auth
 	c.Directives.HasRole = graph.HasRole
@@ -63,10 +60,10 @@ func playgroundHandler() gin.HandlerFunc {
 	}
 }
 func main() {
-	dbURL := os.Getenv("DB_URL")
-	conn, err := sql.Open("postgres", dbURL)
+	dbURL := os.Getenv("POSTGRESQL_URL")
+	conn, err := pg.Open(dbURL)
 	if err != nil {
-		utils.GetLog().Info().Msgf("Can't connect to database:", err)
+		utils.GetLog().Err(err).Msg("Can't connect to database:")
 	}
 	if err != nil {
 		fmt.Printf("run PostgreSQL failed %v", err)
@@ -75,20 +72,22 @@ func main() {
 
 	db := sqldblogger.OpenDriver(dbURL, conn.Driver(), zerologadapter.New(*utils.GetLog()))
 	db.Ping()
-	dbQueries := database.New(conn)
+	repo := pg.NewRepository(conn)
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
 	}
+	gin.Logger()
 
 	// Setting up gin
 	r := gin.New()
 	r.Use(customMiddlerware.DefaultStructuredLogger())
 	r.Use(gin.Recovery())
 	r.Use(customMiddlerware.GinContextToContextMiddleware())
-	r.Use(customMiddlerware.AuthMiddleware(dbQueries))
-	r.POST("/query", dataloader.DataLoaderMiddleware(dbQueries), graphqlHandler(dbQueries))
+	r.Use(customMiddlerware.AuthMiddleware(repo))
+	dl := dataloaders.NewRetriever()
+	r.POST("/query", dataloaders.Middleware(repo), graphqlHandler(repo, dl))
 	r.GET("/", playgroundHandler())
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)

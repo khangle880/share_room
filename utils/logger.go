@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"runtime/debug"
@@ -8,13 +9,14 @@ import (
 	"sync"
 	"time"
 
+	// "github.com/pterm/pterm"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/pkgerrors"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var once sync.Once
-var log zerolog.Logger
+var Log zerolog.Logger
 
 func GetLog() *zerolog.Logger {
 	once.Do(func() {
@@ -23,12 +25,15 @@ func GetLog() *zerolog.Logger {
 
 		logLevel, err := strconv.Atoi(os.Getenv("LOG_LEVEL"))
 		if err != nil {
-			logLevel = int(zerolog.InfoLevel)
+			logLevel = int(zerolog.TraceLevel)
 		}
 
 		var output io.Writer = zerolog.ConsoleWriter{
-			Out:        os.Stdout,
+			Out:        os.Stderr,
 			TimeFormat: time.RFC3339,
+			FormatMessage: func(i interface{}) string {
+				return fmt.Sprintf("| %s |", i)
+			},
 			FieldsExclude: []string{
 				"user_agent",
 				"git_revision",
@@ -59,8 +64,9 @@ func GetLog() *zerolog.Logger {
 			}
 		}
 
-		log = zerolog.New(output).Level(zerolog.Level(logLevel)).With().Timestamp().
+		Log = zerolog.New(output).Level(zerolog.Level(logLevel)).With().Timestamp().Caller().
 			Str("git_revision", gitRevision).Str("go_version", buildInfo.GoVersion).Logger()
+		zerolog.DefaultContextLogger = &Log
 	})
-	return &log
+	return &Log
 }

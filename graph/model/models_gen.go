@@ -58,7 +58,7 @@ type CreateTransInput struct {
 type CreateUserInput struct {
 	Username  string       `json:"username"`
 	Password  string       `json:"password"`
-	Email     string       `json:"email"`
+	Email     *string      `json:"email,omitempty"`
 	Phone     *string      `json:"phone,omitempty"`
 	Firstname *string      `json:"firstname,omitempty"`
 	Lastname  *string      `json:"lastname,omitempty"`

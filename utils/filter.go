@@ -23,8 +23,7 @@ func ToStrings[T fmt.Stringer](list []T) []string {
 func ConvertList[T, V any](inputList []T, converter func(T) V) []V {
     var outputList []V
     for _, item := range inputList {
-        convertedItem := converter(item)
-        outputList = append(outputList, convertedItem)
+        outputList = append(outputList, converter(item))
     }
     return outputList
 }

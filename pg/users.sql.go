@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,28 +15,26 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (created_at, updated_at, last_join_at, username, hashed_password, email)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email
+INSERT INTO users (last_join_at, username, hashed_password, email, phone)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone
 `
 
 type CreateUserParams struct {
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
 	LastJoinAt     time.Time
 	Username       string
 	HashedPassword string
-	Email          string
+	Email          sql.NullString
+	Phone          sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
-		arg.CreatedAt,
-		arg.UpdatedAt,
 		arg.LastJoinAt,
 		arg.Username,
 		arg.HashedPassword,
 		arg.Email,
+		arg.Phone,
 	)
 	var i User
 	err := row.Scan(
@@ -47,15 +46,16 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Username,
 		&i.HashedPassword,
 		&i.Email,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email FROM users WHERE email = $1
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE email = $1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+func (q *Queries) GetUserByEmail(ctx context.Context, email sql.NullString) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
 	var i User
 	err := row.Scan(
@@ -67,12 +67,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Username,
 		&i.HashedPassword,
 		&i.Email,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email FROM users WHERE id = $1
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -87,12 +88,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Username,
 		&i.HashedPassword,
 		&i.Email,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email FROM users WHERE username = $1
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -107,12 +109,13 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.Username,
 		&i.HashedPassword,
 		&i.Email,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getUsersByIDs = `-- name: GetUsersByIDs :many
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email FROM users WHERE id = ANY($1::UUID[])
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = ANY($1::UUID[])
 `
 
 func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]User, error) {
@@ -133,6 +136,7 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Us
 			&i.Username,
 			&i.HashedPassword,
 			&i.Email,
+			&i.Phone,
 		); err != nil {
 			return nil, err
 		}

@@ -368,12 +368,10 @@ type Budget struct {
 }
 
 type BudgetMember struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	UserID    uuid.UUID
-	BudgetID  uuid.UUID
-	Role      BudgetRole
+	ID       uuid.UUID
+	UserID   uuid.UUID
+	BudgetID uuid.UUID
+	Role     BudgetRole
 }
 
 type Category struct {
@@ -385,6 +383,16 @@ type Category struct {
 	Type      CategoryType
 	IconID    uuid.UUID
 	ParentID  uuid.NullUUID
+}
+
+type Event struct {
+	ID          uuid.UUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Name        string
+	Description string
+	IconID      uuid.UUID
+	Background  string
 }
 
 type Icon struct {
@@ -408,7 +416,6 @@ type Profile struct {
 	Dob       time.Time
 	Bio       sql.NullString
 	Avatar    sql.NullString
-	Phone     sql.NullString
 }
 
 type Room struct {
@@ -423,12 +430,10 @@ type Room struct {
 }
 
 type RoomMember struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	UserID    uuid.UUID
-	RoomID    uuid.UUID
-	Role      RoomRole
+	ID     uuid.UUID
+	UserID uuid.UUID
+	RoomID uuid.UUID
+	Role   RoomRole
 }
 
 type Transaction struct {
@@ -447,8 +452,6 @@ type Transaction struct {
 
 type TransactionMember struct {
 	ID            uuid.UUID
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
 	UserID        uuid.UUID
 	TransactionID uuid.UUID
 	Role          TransRole
@@ -462,5 +465,12 @@ type User struct {
 	LastJoinAt     time.Time
 	Username       string
 	HashedPassword string
-	Email          string
+	Email          sql.NullString
+	Phone          sql.NullString
+}
+
+type UserProfile struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	ProfileID uuid.UUID
 }

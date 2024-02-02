@@ -124,7 +124,9 @@ type User {
   lastLoginAt: Time!
   username: String!
   hashedPassword: String!
-  email: String!
+  email: String
+  phone: String
+  profile: Profile!
 }
 
 """
@@ -141,7 +143,6 @@ type Profile {
   dob: Time
   bio: String
   avatar: String
-  phone: String
 }
 """
 Query Input
@@ -156,25 +157,25 @@ Query
 """
 type Query {
   users(role: UserRole!): [User!]!
-  # categories(
-  #   filter: BudgetFilter
-  #   limit: Int = 10
-  #   offset: Int = 0
-  # ): [Category!]!
-  # budgets: [Budget!]! @auth
+  categories(
+    filter: BudgetFilter
+    limit: Int = 10
+    offset: Int = 0
+  ): [Category!]!
+  budgets: [Budget!]! @auth
 }
 
 type Mutation {
   login(email: String!, password: String!): Token!
   register(input: CreateUserInput!): Token!
-  # createIcon(input: CreateIconInput!): Icon!
-  # createEvent(input: CreateEventInput!): Event!
-  # createCategory(input: CreateCategoryInput!): Category!
-  # createBudget(input: CreateBudgetInput!): Budget! @auth
-  # createTransaction(input: CreateTransInput!): Transaction!
-  # updateBudget(id: UUID!, input: UpdateBudgetInput!): Budget!
-  # deleteBudget(id: UUID!): Boolean! 
-  # deleteUser(id: UUID!): Boolean! @hasRole(role: ADMIN)
+  createIcon(input: CreateIconInput!): Icon!
+  createEvent(input: CreateEventInput!): Event!
+  createCategory(input: CreateCategoryInput!): Category!
+  createBudget(input: CreateBudgetInput!): Budget! @auth
+  createTransaction(input: CreateTransInput!): Transaction!
+  updateBudget(id: UUID!, input: UpdateBudgetInput!): Budget!
+  deleteBudget(id: UUID!): Boolean! 
+  deleteUser(id: UUID!): Boolean! @hasRole(role: ADMIN)
 }
 
 """
@@ -183,7 +184,7 @@ Input
 input CreateUserInput {
   username: String!
   password: String!
-  email: String!
+  email: String
   phone: String
   firstname: String
   lastname: String
