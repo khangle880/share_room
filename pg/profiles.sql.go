@@ -8,10 +8,9 @@ package pg
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createProfile = `-- name: CreateProfile :one
@@ -24,13 +23,13 @@ type CreateProfileParams struct {
 	Role      UserRole
 	Firstname sql.NullString
 	Lastname  sql.NullString
-	Dob       time.Time
+	Dob       pgtype.Timestamp
 	Bio       sql.NullString
 	Avatar    sql.NullString
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
-	row := q.db.QueryRowContext(ctx, createProfile,
+	row := q.db.QueryRow(ctx, createProfile,
 		arg.Role,
 		arg.Firstname,
 		arg.Lastname,
@@ -63,7 +62,7 @@ WHERE u.id = $1
 `
 
 func (q *Queries) GetProfileByUserID(ctx context.Context, id uuid.UUID) (Profile, error) {
-	row := q.db.QueryRowContext(ctx, getProfileByUserID, id)
+	row := q.db.QueryRow(ctx, getProfileByUserID, id)
 	var i Profile
 	err := row.Scan(
 		&i.ID,
@@ -89,7 +88,7 @@ WHERE u.id = ANY($1::UUID[])
 `
 
 func (q *Queries) GetProfilesByUserIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Profile, error) {
-	rows, err := q.db.QueryContext(ctx, getProfilesByUserIDs, pq.Array(dollar_1))
+	rows, err := q.db.Query(ctx, getProfilesByUserIDs, dollar_1)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +111,6 @@ func (q *Queries) GetProfilesByUserIDs(ctx context.Context, dollar_1 []uuid.UUID
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

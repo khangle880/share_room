@@ -5,35 +5,36 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/khangle880/share_room/utils"
 )
 
 type RepoSvc struct {
 	*Queries
-	db *sql.DB
+	conn *pgx.Conn
 }
 
 func (r *RepoSvc) withTx(ctx context.Context, txFn func(*Queries) error) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
 	q := r.Queries.WithTx(tx)
 	err = txFn(q)
 	if err != nil {
-		if rbErr := tx.Rollback(); rbErr != nil {
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
 			err = fmt.Errorf("tx failed: %v, unable to rollback %v", err, rbErr)
 		}
 	} else {
-		err = tx.Commit()
+		err = tx.Commit(ctx)
 	}
 	return err
 }
 
-func NewRepository(db *sql.DB) *RepoSvc {
+func NewRepository(conn *pgx.Conn) *RepoSvc {
 	return &RepoSvc{
-		Queries: New(db),
-		db:      db,
+		Queries: New(conn),
+		conn:      conn,
 	}
 }
 

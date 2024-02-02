@@ -22,6 +22,6 @@ type CreateUserProfileParams struct {
 }
 
 func (q *Queries) CreateUserProfile(ctx context.Context, arg CreateUserProfileParams) error {
-	_, err := q.db.ExecContext(ctx, createUserProfile, arg.UserID, arg.ProfileID)
+	_, err := q.db.Exec(ctx, createUserProfile, arg.UserID, arg.ProfileID)
 	return err
 }

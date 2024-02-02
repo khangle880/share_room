@@ -8,10 +8,9 @@ package pg
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -21,7 +20,7 @@ RETURNING id, created_at, updated_at, deleted_at, last_join_at, username, hashed
 `
 
 type CreateUserParams struct {
-	LastJoinAt     time.Time
+	LastJoinAt     pgtype.Timestamp
 	Username       string
 	HashedPassword string
 	Email          sql.NullString
@@ -29,7 +28,7 @@ type CreateUserParams struct {
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser,
+	row := q.db.QueryRow(ctx, createUser,
 		arg.LastJoinAt,
 		arg.Username,
 		arg.HashedPassword,
@@ -56,7 +55,7 @@ SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_pa
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email sql.NullString) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -77,7 +76,7 @@ SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_pa
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByID, id)
+	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -98,7 +97,7 @@ SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_pa
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
+	row := q.db.QueryRow(ctx, getUserByUsername, username)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -119,7 +118,7 @@ SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_pa
 `
 
 func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, getUsersByIDs, pq.Array(dollar_1))
+	rows, err := q.db.Query(ctx, getUsersByIDs, dollar_1)
 	if err != nil {
 		return nil, err
 	}
@@ -141,9 +140,6 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Us
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

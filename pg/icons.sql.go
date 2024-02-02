@@ -23,7 +23,7 @@ type CreateIconParams struct {
 }
 
 func (q *Queries) CreateIcon(ctx context.Context, arg CreateIconParams) (Icon, error) {
-	row := q.db.QueryRowContext(ctx, createIcon, arg.Name, arg.Url, arg.Type)
+	row := q.db.QueryRow(ctx, createIcon, arg.Name, arg.Url, arg.Type)
 	var i Icon
 	err := row.Scan(
 		&i.ID,

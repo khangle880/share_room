@@ -8,9 +8,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type BudgetRole string
@@ -354,17 +354,17 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 
 type Budget struct {
 	ID          uuid.UUID
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   sql.NullTime
+	CreatedAt   pgtype.Timestamp
+	UpdatedAt   pgtype.Timestamp
+	DeletedAt   pgtype.Timestamp
 	Name        string
 	Description sql.NullString
-	Amount      sql.NullString
+	Amount      pgtype.Numeric
 	IconID      uuid.UUID
 	RoomID      uuid.NullUUID
 	Period      NullPeriodType
-	StartDate   time.Time
-	EndDate     sql.NullTime
+	StartDate   pgtype.Timestamp
+	EndDate     pgtype.Timestamp
 }
 
 type BudgetMember struct {
@@ -376,9 +376,9 @@ type BudgetMember struct {
 
 type Category struct {
 	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
+	CreatedAt pgtype.Timestamp
+	UpdatedAt pgtype.Timestamp
+	DeletedAt pgtype.Timestamp
 	Name      string
 	Type      CategoryType
 	IconID    uuid.UUID
@@ -387,8 +387,8 @@ type Category struct {
 
 type Event struct {
 	ID          uuid.UUID
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	CreatedAt   pgtype.Timestamp
+	UpdatedAt   pgtype.Timestamp
 	Name        string
 	Description string
 	IconID      uuid.UUID
@@ -397,9 +397,9 @@ type Event struct {
 
 type Icon struct {
 	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
+	CreatedAt pgtype.Timestamp
+	UpdatedAt pgtype.Timestamp
+	DeletedAt pgtype.Timestamp
 	Name      string
 	Url       string
 	Type      sql.NullString
@@ -407,22 +407,22 @@ type Icon struct {
 
 type Profile struct {
 	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
+	CreatedAt pgtype.Timestamp
+	UpdatedAt pgtype.Timestamp
+	DeletedAt pgtype.Timestamp
 	Role      UserRole
 	Firstname sql.NullString
 	Lastname  sql.NullString
-	Dob       time.Time
+	Dob       pgtype.Timestamp
 	Bio       sql.NullString
 	Avatar    sql.NullString
 }
 
 type Room struct {
 	ID         uuid.UUID
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	DeletedAt  sql.NullTime
+	CreatedAt  pgtype.Timestamp
+	UpdatedAt  pgtype.Timestamp
+	DeletedAt  pgtype.Timestamp
 	Name       string
 	Address    sql.NullString
 	Avatar     sql.NullString
@@ -438,15 +438,15 @@ type RoomMember struct {
 
 type Transaction struct {
 	ID          uuid.UUID
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   sql.NullTime
+	CreatedAt   pgtype.Timestamp
+	UpdatedAt   pgtype.Timestamp
+	DeletedAt   pgtype.Timestamp
 	CategoryID  uuid.UUID
 	BudgetID    uuid.NullUUID
 	EventID     uuid.NullUUID
-	ExcTime     time.Time
+	ExcTime     pgtype.Timestamp
 	Description sql.NullString
-	Amount      sql.NullString
+	Amount      pgtype.Numeric
 	Images      []string
 }
 
@@ -459,10 +459,10 @@ type TransactionMember struct {
 
 type User struct {
 	ID             uuid.UUID
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      sql.NullTime
-	LastJoinAt     time.Time
+	CreatedAt      pgtype.Timestamp
+	UpdatedAt      pgtype.Timestamp
+	DeletedAt      pgtype.Timestamp
+	LastJoinAt     pgtype.Timestamp
 	Username       string
 	HashedPassword string
 	Email          sql.NullString

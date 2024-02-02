@@ -1,19 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"os"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/khangle880/share_room/dataloaders"
 	"github.com/khangle880/share_room/graph"
 	"github.com/khangle880/share_room/pg"
 	"github.com/khangle880/share_room/utils"
-	sqldblogger "github.com/simukti/sqldb-logger"
-	"github.com/simukti/sqldb-logger/logadapter/zerologadapter"
+	zerologadapter "github.com/jackc/pgx-zerolog"
 
 	customMiddlerware "github.com/khangle880/share_room/middleware"
 )
@@ -60,18 +61,20 @@ func playgroundHandler() gin.HandlerFunc {
 	}
 }
 func main() {
-	dbURL := os.Getenv("POSTGRESQL_URL")
-	conn, err := pg.Open(dbURL)
+	dsn := os.Getenv("POSTGRESQL_URL")
+	// conn, err := pg.Open(dbURL)
+	conn, err := pgx.Connect(context.Background(), dsn)
 	if err != nil {
 		utils.GetLog().Err(err).Msg("Can't connect to database:")
-	}
-	if err != nil {
-		fmt.Printf("run PostgreSQL failed %v", err)
 		os.Exit(1)
 	}
+	defer conn.Close(context.Background())
 
-	db := sqldblogger.OpenDriver(dbURL, conn.Driver(), zerologadapter.New(*utils.GetLog()))
-	db.Ping()
+	logger := zerologadapter.NewLogger(utils.Log)
+	conn.Config().Tracer = &tracelog.TraceLog{Logger: logger, LogLevel: tracelog.LogLevelTrace}
+
+	// db := sqldblogger.OpenDriver(dsn, conn.Driver(), zerologadapter.New(*utils.GetLog()))
+	// db.Ping()
 	repo := pg.NewRepository(conn)
 
 	port := os.Getenv("PORT")
