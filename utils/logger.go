@@ -9,17 +9,18 @@ import (
 	"sync"
 	"time"
 
-	// "github.com/pterm/pterm"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/pkgerrors"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+var baseOnce sync.Once
 var once sync.Once
+var baseLog zerolog.Logger
 var Log zerolog.Logger
 
-func GetLog() *zerolog.Logger {
-	once.Do(func() {
+func GetBaseLog() *zerolog.Logger {
+	baseOnce.Do(func() {
 		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 		zerolog.TimeFieldFormat = time.RFC3339
 
@@ -53,6 +54,13 @@ func GetLog() *zerolog.Logger {
 			output = zerolog.MultiLevelWriter(os.Stderr, filelogger)
 		}
 
+		baseLog = zerolog.New(output).Level(zerolog.Level(logLevel)).With().Timestamp().Logger()
+	})
+	return &baseLog
+}
+
+func GetLog() *zerolog.Logger {
+	once.Do(func() {
 		var gitRevision string
 		buildInfo, ok := debug.ReadBuildInfo()
 		if ok {
@@ -64,7 +72,7 @@ func GetLog() *zerolog.Logger {
 			}
 		}
 
-		Log = zerolog.New(output).Level(zerolog.Level(logLevel)).With().Timestamp().Caller().
+		Log = GetBaseLog().With().Caller().
 			Str("git_revision", gitRevision).Str("go_version", buildInfo.GoVersion).Logger()
 		zerolog.DefaultContextLogger = &Log
 	})

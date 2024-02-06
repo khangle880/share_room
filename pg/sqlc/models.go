@@ -5,9 +5,9 @@
 package pg
 
 import (
-	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -33,8 +33,8 @@ func (e *BudgetRole) Scan(src interface{}) error {
 }
 
 type NullBudgetRole struct {
-	BudgetRole BudgetRole
-	Valid      bool // Valid is true if BudgetRole is not NULL
+	BudgetRole BudgetRole `json:"budget_role"`
+	Valid      bool       `json:"valid"` // Valid is true if BudgetRole is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -75,8 +75,8 @@ func (e *CategoryType) Scan(src interface{}) error {
 }
 
 type NullCategoryType struct {
-	CategoryType CategoryType
-	Valid        bool // Valid is true if CategoryType is not NULL
+	CategoryType CategoryType `json:"category_type"`
+	Valid        bool         `json:"valid"` // Valid is true if CategoryType is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -118,8 +118,8 @@ func (e *PeriodType) Scan(src interface{}) error {
 }
 
 type NullPeriodType struct {
-	PeriodType PeriodType
-	Valid      bool // Valid is true if PeriodType is not NULL
+	PeriodType PeriodType `json:"period_type"`
+	Valid      bool       `json:"valid"` // Valid is true if PeriodType is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -160,8 +160,8 @@ func (e *RoomRole) Scan(src interface{}) error {
 }
 
 type NullRoomRole struct {
-	RoomRole RoomRole
-	Valid    bool // Valid is true if RoomRole is not NULL
+	RoomRole RoomRole `json:"room_role"`
+	Valid    bool     `json:"valid"` // Valid is true if RoomRole is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -203,8 +203,8 @@ func (e *StatusType) Scan(src interface{}) error {
 }
 
 type NullStatusType struct {
-	StatusType StatusType
-	Valid      bool // Valid is true if StatusType is not NULL
+	StatusType StatusType `json:"status_type"`
+	Valid      bool       `json:"valid"` // Valid is true if StatusType is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -246,8 +246,8 @@ func (e *TaskRole) Scan(src interface{}) error {
 }
 
 type NullTaskRole struct {
-	TaskRole TaskRole
-	Valid    bool // Valid is true if TaskRole is not NULL
+	TaskRole TaskRole `json:"task_role"`
+	Valid    bool     `json:"valid"` // Valid is true if TaskRole is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -288,8 +288,8 @@ func (e *TransRole) Scan(src interface{}) error {
 }
 
 type NullTransRole struct {
-	TransRole TransRole
-	Valid     bool // Valid is true if TransRole is not NULL
+	TransRole TransRole `json:"trans_role"`
+	Valid     bool      `json:"valid"` // Valid is true if TransRole is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -330,8 +330,8 @@ func (e *UserRole) Scan(src interface{}) error {
 }
 
 type NullUserRole struct {
-	UserRole UserRole
-	Valid    bool // Valid is true if UserRole is not NULL
+	UserRole UserRole `json:"user_role"`
+	Valid    bool     `json:"valid"` // Valid is true if UserRole is not NULL
 }
 
 // Scan implements the Scanner interface.
@@ -353,124 +353,124 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 }
 
 type Budget struct {
-	ID          uuid.UUID
-	CreatedAt   pgtype.Timestamp
-	UpdatedAt   pgtype.Timestamp
-	DeletedAt   pgtype.Timestamp
-	Name        string
-	Description sql.NullString
-	Amount      pgtype.Numeric
-	IconID      uuid.UUID
-	RoomID      uuid.NullUUID
-	Period      NullPeriodType
-	StartDate   pgtype.Timestamp
-	EndDate     pgtype.Timestamp
+	ID          uuid.UUID      `json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   *time.Time     `json:"deleted_at"`
+	Name        string         `json:"name"`
+	Description *string        `json:"description"`
+	Amount      pgtype.Numeric `json:"amount"`
+	IconID      uuid.UUID      `json:"icon_id"`
+	RoomID      uuid.NullUUID  `json:"room_id"`
+	Period      NullPeriodType `json:"period"`
+	StartDate   time.Time      `json:"start_date"`
+	EndDate     *time.Time     `json:"end_date"`
 }
 
 type BudgetMember struct {
-	ID       uuid.UUID
-	UserID   uuid.UUID
-	BudgetID uuid.UUID
-	Role     BudgetRole
+	ID       uuid.UUID  `json:"id"`
+	UserID   uuid.UUID  `json:"user_id"`
+	BudgetID uuid.UUID  `json:"budget_id"`
+	Role     BudgetRole `json:"role"`
 }
 
 type Category struct {
-	ID        uuid.UUID
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
-	DeletedAt pgtype.Timestamp
-	Name      string
-	Type      CategoryType
-	IconID    uuid.UUID
-	ParentID  uuid.NullUUID
+	ID        uuid.UUID     `json:"id"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+	DeletedAt *time.Time    `json:"deleted_at"`
+	Name      string        `json:"name"`
+	Type      CategoryType  `json:"type"`
+	IconID    uuid.UUID     `json:"icon_id"`
+	ParentID  uuid.NullUUID `json:"parent_id"`
 }
 
 type Event struct {
-	ID          uuid.UUID
-	CreatedAt   pgtype.Timestamp
-	UpdatedAt   pgtype.Timestamp
-	Name        string
-	Description string
-	IconID      uuid.UUID
-	Background  string
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IconID      uuid.UUID `json:"icon_id"`
+	Background  string    `json:"background"`
 }
 
 type Icon struct {
-	ID        uuid.UUID
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
-	DeletedAt pgtype.Timestamp
-	Name      string
-	Url       string
-	Type      sql.NullString
+	ID        uuid.UUID  `json:"id"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at"`
+	Name      string     `json:"name"`
+	Url       string     `json:"url"`
+	Type      *string    `json:"type"`
 }
 
 type Profile struct {
-	ID        uuid.UUID
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
-	DeletedAt pgtype.Timestamp
-	Role      UserRole
-	Firstname sql.NullString
-	Lastname  sql.NullString
-	Dob       pgtype.Timestamp
-	Bio       sql.NullString
-	Avatar    sql.NullString
+	ID        uuid.UUID  `json:"id"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at"`
+	Role      UserRole   `json:"role"`
+	Firstname *string    `json:"firstname"`
+	Lastname  *string    `json:"lastname"`
+	Dob       time.Time  `json:"dob"`
+	Bio       *string    `json:"bio"`
+	Avatar    *string    `json:"avatar"`
 }
 
 type Room struct {
-	ID         uuid.UUID
-	CreatedAt  pgtype.Timestamp
-	UpdatedAt  pgtype.Timestamp
-	DeletedAt  pgtype.Timestamp
-	Name       string
-	Address    sql.NullString
-	Avatar     sql.NullString
-	Background sql.NullString
+	ID         uuid.UUID  `json:"id"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	DeletedAt  *time.Time `json:"deleted_at"`
+	Name       string     `json:"name"`
+	Address    *string    `json:"address"`
+	Avatar     *string    `json:"avatar"`
+	Background *string    `json:"background"`
 }
 
 type RoomMember struct {
-	ID     uuid.UUID
-	UserID uuid.UUID
-	RoomID uuid.UUID
-	Role   RoomRole
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+	RoomID uuid.UUID `json:"room_id"`
+	Role   RoomRole  `json:"role"`
 }
 
 type Transaction struct {
-	ID          uuid.UUID
-	CreatedAt   pgtype.Timestamp
-	UpdatedAt   pgtype.Timestamp
-	DeletedAt   pgtype.Timestamp
-	CategoryID  uuid.UUID
-	BudgetID    uuid.NullUUID
-	EventID     uuid.NullUUID
-	ExcTime     pgtype.Timestamp
-	Description sql.NullString
-	Amount      pgtype.Numeric
-	Images      []string
+	ID          uuid.UUID      `json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   *time.Time     `json:"deleted_at"`
+	CategoryID  uuid.UUID      `json:"category_id"`
+	BudgetID    uuid.NullUUID  `json:"budget_id"`
+	EventID     uuid.NullUUID  `json:"event_id"`
+	ExcTime     time.Time      `json:"exc_time"`
+	Description *string        `json:"description"`
+	Amount      pgtype.Numeric `json:"amount"`
+	Images      []string       `json:"images"`
 }
 
 type TransactionMember struct {
-	ID            uuid.UUID
-	UserID        uuid.UUID
-	TransactionID uuid.UUID
-	Role          TransRole
+	ID            uuid.UUID `json:"id"`
+	UserID        uuid.UUID `json:"user_id"`
+	TransactionID uuid.UUID `json:"transaction_id"`
+	Role          TransRole `json:"role"`
 }
 
 type User struct {
-	ID             uuid.UUID
-	CreatedAt      pgtype.Timestamp
-	UpdatedAt      pgtype.Timestamp
-	DeletedAt      pgtype.Timestamp
-	LastJoinAt     pgtype.Timestamp
-	Username       string
-	HashedPassword string
-	Email          sql.NullString
-	Phone          sql.NullString
+	ID             uuid.UUID  `json:"id"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at"`
+	LastJoinAt     time.Time  `json:"last_join_at"`
+	Username       string     `json:"username"`
+	HashedPassword string     `json:"hashed_password"`
+	Email          *string    `json:"email"`
+	Phone          *string    `json:"phone"`
 }
 
 type UserProfile struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	ProfileID uuid.UUID
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	ProfileID uuid.UUID `json:"profile_id"`
 }

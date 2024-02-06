@@ -7,7 +7,6 @@ package pg
 
 import (
 	"context"
-	"database/sql"
 )
 
 const createIcon = `-- name: CreateIcon :one
@@ -17,9 +16,9 @@ RETURNING id, created_at, updated_at, deleted_at, name, url, type
 `
 
 type CreateIconParams struct {
-	Name string
-	Url  string
-	Type sql.NullString
+	Name string  `json:"name"`
+	Url  string  `json:"url"`
+	Type *string `json:"type"`
 }
 
 func (q *Queries) CreateIcon(ctx context.Context, arg CreateIconParams) (Icon, error) {

@@ -121,7 +121,7 @@ type User {
   createdAt: Time!
   updatedAt: Time!
   deletedAt: Time
-  lastLoginAt: Time!
+  lastJoinAt: Time!
   username: String!
   hashedPassword: String!
   email: String
@@ -156,7 +156,8 @@ input BudgetFilter {
 Query
 """
 type Query {
-  users(role: UserRole!): [User!]!
+  profile: User!
+  users(role: UserRole!): [User!]! @auth
   categories(
     filter: BudgetFilter
     limit: Int = 10

@@ -6,7 +6,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/khangle880/share_room/middleware"
-	"github.com/khangle880/share_room/pg"
+	"github.com/khangle880/share_room/pg/sqlc"
 )
 
 func Auth(ctx context.Context, obj interface{}, next graphql.Resolver) (interface{}, error) {

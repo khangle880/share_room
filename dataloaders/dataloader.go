@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/khangle880/share_room/pg"
+	"github.com/khangle880/share_room/pg/sqlc"
 	"github.com/khangle880/share_room/utils"
 )
 

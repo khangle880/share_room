@@ -17,7 +17,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/google/uuid"
 	"github.com/khangle880/share_room/graph/model"
-	"github.com/khangle880/share_room/pg"
+	pg "github.com/khangle880/share_room/pg/sqlc"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -45,9 +45,7 @@ type ResolverRoot interface {
 	Budget() BudgetResolver
 	Category() CategoryResolver
 	Event() EventResolver
-	Icon() IconResolver
 	Mutation() MutationResolver
-	Profile() ProfileResolver
 	Query() QueryResolver
 	Room() RoomResolver
 	Transaction() TransactionResolver
@@ -138,6 +136,7 @@ type ComplexityRoot struct {
 	Query struct {
 		Budgets    func(childComplexity int) int
 		Categories func(childComplexity int, filter *model.BudgetFilter, limit *int, offset *int) int
+		Profile    func(childComplexity int) int
 		Users      func(childComplexity int, role pg.UserRole) int
 	}
 
@@ -182,7 +181,7 @@ type ComplexityRoot struct {
 		Email          func(childComplexity int) int
 		HashedPassword func(childComplexity int) int
 		ID             func(childComplexity int) int
-		LastLoginAt    func(childComplexity int) int
+		LastJoinAt     func(childComplexity int) int
 		Phone          func(childComplexity int) int
 		Profile        func(childComplexity int) int
 		UpdatedAt      func(childComplexity int) int
@@ -191,37 +190,28 @@ type ComplexityRoot struct {
 }
 
 type BudgetResolver interface {
-	DeletedAt(ctx context.Context, obj *pg.Budget) (*time.Time, error)
-
-	Description(ctx context.Context, obj *pg.Budget) (*string, error)
 	Amount(ctx context.Context, obj *pg.Budget) (float64, error)
 	Icon(ctx context.Context, obj *pg.Budget) (*pg.Icon, error)
 	Room(ctx context.Context, obj *pg.Budget) (*pg.Room, error)
 	Period(ctx context.Context, obj *pg.Budget) (*pg.PeriodType, error)
 
-	EndDate(ctx context.Context, obj *pg.Budget) (*time.Time, error)
 	Transactions(ctx context.Context, obj *pg.Budget) ([]pg.Transaction, error)
 	Members(ctx context.Context, obj *pg.Budget) ([]pg.User, error)
 }
 type CategoryResolver interface {
-	DeletedAt(ctx context.Context, obj *pg.Category) (*time.Time, error)
-
 	Icon(ctx context.Context, obj *pg.Category) (*pg.Icon, error)
 	Parent(ctx context.Context, obj *pg.Category) (*pg.Category, error)
 }
 type EventResolver interface {
-	Icon(ctx context.Context, obj *model.Event) (*pg.Icon, error)
-}
-type IconResolver interface {
-	DeletedAt(ctx context.Context, obj *pg.Icon) (*time.Time, error)
+	DeletedAt(ctx context.Context, obj *pg.Event) (*time.Time, error)
 
-	Type(ctx context.Context, obj *pg.Icon) (*string, error)
+	Icon(ctx context.Context, obj *pg.Event) (*pg.Icon, error)
 }
 type MutationResolver interface {
 	Login(ctx context.Context, email string, password string) (*model.Token, error)
 	Register(ctx context.Context, input model.CreateUserInput) (*model.Token, error)
 	CreateIcon(ctx context.Context, input model.CreateIconInput) (*pg.Icon, error)
-	CreateEvent(ctx context.Context, input model.CreateEventInput) (*model.Event, error)
+	CreateEvent(ctx context.Context, input model.CreateEventInput) (*pg.Event, error)
 	CreateCategory(ctx context.Context, input model.CreateCategoryInput) (*pg.Category, error)
 	CreateBudget(ctx context.Context, input model.CreateBudgetInput) (*pg.Budget, error)
 	CreateTransaction(ctx context.Context, input model.CreateTransInput) (*pg.Transaction, error)
@@ -229,46 +219,26 @@ type MutationResolver interface {
 	DeleteBudget(ctx context.Context, id uuid.UUID) (bool, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) (bool, error)
 }
-type ProfileResolver interface {
-	DeletedAt(ctx context.Context, obj *pg.Profile) (*time.Time, error)
-
-	Firstname(ctx context.Context, obj *pg.Profile) (*string, error)
-	Lastname(ctx context.Context, obj *pg.Profile) (*string, error)
-
-	Bio(ctx context.Context, obj *pg.Profile) (*string, error)
-	Avatar(ctx context.Context, obj *pg.Profile) (*string, error)
-}
 type QueryResolver interface {
+	Profile(ctx context.Context) (*pg.User, error)
 	Users(ctx context.Context, role pg.UserRole) ([]pg.User, error)
 	Categories(ctx context.Context, filter *model.BudgetFilter, limit *int, offset *int) ([]pg.Category, error)
 	Budgets(ctx context.Context) ([]pg.Budget, error)
 }
 type RoomResolver interface {
-	DeletedAt(ctx context.Context, obj *pg.Room) (*time.Time, error)
-
-	Address(ctx context.Context, obj *pg.Room) (*string, error)
 	Admin(ctx context.Context, obj *pg.Room) (*pg.User, error)
 	Member(ctx context.Context, obj *pg.Room) ([]pg.User, error)
-	Avatar(ctx context.Context, obj *pg.Room) (*string, error)
-	Background(ctx context.Context, obj *pg.Room) (*string, error)
 }
 type TransactionResolver interface {
-	DeletedAt(ctx context.Context, obj *pg.Transaction) (*time.Time, error)
 	Category(ctx context.Context, obj *pg.Transaction) (*pg.Category, error)
 	Budget(ctx context.Context, obj *pg.Transaction) (*pg.Budget, error)
-	Event(ctx context.Context, obj *pg.Transaction) (*model.Event, error)
-	Description(ctx context.Context, obj *pg.Transaction) (*string, error)
+	Event(ctx context.Context, obj *pg.Transaction) (*pg.Event, error)
 
 	Creators(ctx context.Context, obj *pg.Transaction) ([]pg.User, error)
 	Partners(ctx context.Context, obj *pg.Transaction) ([]pg.User, error)
 	Amount(ctx context.Context, obj *pg.Transaction) (float64, error)
 }
 type UserResolver interface {
-	DeletedAt(ctx context.Context, obj *pg.User) (*time.Time, error)
-	LastLoginAt(ctx context.Context, obj *pg.User) (*time.Time, error)
-
-	Email(ctx context.Context, obj *pg.User) (*string, error)
-	Phone(ctx context.Context, obj *pg.User) (*string, error)
 	Profile(ctx context.Context, obj *pg.User) (*pg.Profile, error)
 }
 
@@ -759,6 +729,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Categories(childComplexity, args["filter"].(*model.BudgetFilter), args["limit"].(*int), args["offset"].(*int)), true
 
+	case "Query.profile":
+		if e.complexity.Query.Profile == nil {
+			break
+		}
+
+		return e.complexity.Query.Profile(childComplexity), true
+
 	case "Query.users":
 		if e.complexity.Query.Users == nil {
 			break
@@ -988,12 +965,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.User.ID(childComplexity), true
 
-	case "User.lastLoginAt":
-		if e.complexity.User.LastLoginAt == nil {
+	case "User.lastJoinAt":
+		if e.complexity.User.LastJoinAt == nil {
 			break
 		}
 
-		return e.complexity.User.LastLoginAt(childComplexity), true
+		return e.complexity.User.LastJoinAt(childComplexity), true
 
 	case "User.phone":
 		if e.complexity.User.Phone == nil {
@@ -1162,7 +1139,7 @@ func (ec *executionContext) dir_hasRole_args(ctx context.Context, rawArgs map[st
 	var arg0 pg.UserRole
 	if tmp, ok := rawArgs["role"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("role"))
-		arg0, err = ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx, tmp)
+		arg0, err = ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1393,7 +1370,7 @@ func (ec *executionContext) field_Query_users_args(ctx context.Context, rawArgs 
 	var arg0 pg.UserRole
 	if tmp, ok := rawArgs["role"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("role"))
-		arg0, err = ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx, tmp)
+		arg0, err = ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1586,7 +1563,7 @@ func (ec *executionContext) _Budget_deletedAt(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Budget().DeletedAt(rctx, obj)
+		return obj.DeletedAt, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1604,8 +1581,8 @@ func (ec *executionContext) fieldContext_Budget_deletedAt(ctx context.Context, f
 	fc = &graphql.FieldContext{
 		Object:     "Budget",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -1671,7 +1648,7 @@ func (ec *executionContext) _Budget_description(ctx context.Context, field graph
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Budget().Description(rctx, obj)
+		return obj.Description, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1689,8 +1666,8 @@ func (ec *executionContext) fieldContext_Budget_description(ctx context.Context,
 	fc = &graphql.FieldContext{
 		Object:     "Budget",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -1770,7 +1747,7 @@ func (ec *executionContext) _Budget_icon(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.(*pg.Icon)
 	fc.Result = res
-	return ec.marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐIcon(ctx, field.Selections, res)
+	return ec.marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐIcon(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Budget_icon(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1827,7 +1804,7 @@ func (ec *executionContext) _Budget_room(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.(*pg.Room)
 	fc.Result = res
-	return ec.marshalORoom2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐRoom(ctx, field.Selections, res)
+	return ec.marshalORoom2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐRoom(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Budget_room(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1890,7 +1867,7 @@ func (ec *executionContext) _Budget_period(ctx context.Context, field graphql.Co
 	}
 	res := resTmp.(*pg.PeriodType)
 	fc.Result = res
-	return ec.marshalOPeriodType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐPeriodType(ctx, field.Selections, res)
+	return ec.marshalOPeriodType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐPeriodType(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Budget_period(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1964,7 +1941,7 @@ func (ec *executionContext) _Budget_end_date(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Budget().EndDate(rctx, obj)
+		return obj.EndDate, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1982,8 +1959,8 @@ func (ec *executionContext) fieldContext_Budget_end_date(ctx context.Context, fi
 	fc = &graphql.FieldContext{
 		Object:     "Budget",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -2019,7 +1996,7 @@ func (ec *executionContext) _Budget_transactions(ctx context.Context, field grap
 	}
 	res := resTmp.([]pg.Transaction)
 	fc.Result = res
-	return ec.marshalNTransaction2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐTransactionᚄ(ctx, field.Selections, res)
+	return ec.marshalNTransaction2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐTransactionᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Budget_transactions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2091,7 +2068,7 @@ func (ec *executionContext) _Budget_members(ctx context.Context, field graphql.C
 	}
 	res := resTmp.([]pg.User)
 	fc.Result = res
-	return ec.marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserᚄ(ctx, field.Selections, res)
+	return ec.marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Budget_members(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2110,8 +2087,8 @@ func (ec *executionContext) fieldContext_Budget_members(ctx context.Context, fie
 				return ec.fieldContext_User_updatedAt(ctx, field)
 			case "deletedAt":
 				return ec.fieldContext_User_deletedAt(ctx, field)
-			case "lastLoginAt":
-				return ec.fieldContext_User_lastLoginAt(ctx, field)
+			case "lastJoinAt":
+				return ec.fieldContext_User_lastJoinAt(ctx, field)
 			case "username":
 				return ec.fieldContext_User_username(ctx, field)
 			case "hashedPassword":
@@ -2275,7 +2252,7 @@ func (ec *executionContext) _Category_deletedAt(ctx context.Context, field graph
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Category().DeletedAt(rctx, obj)
+		return obj.DeletedAt, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2293,8 +2270,8 @@ func (ec *executionContext) fieldContext_Category_deletedAt(ctx context.Context,
 	fc = &graphql.FieldContext{
 		Object:     "Category",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -2374,7 +2351,7 @@ func (ec *executionContext) _Category_type(ctx context.Context, field graphql.Co
 	}
 	res := resTmp.(pg.CategoryType)
 	fc.Result = res
-	return ec.marshalNCategoryType2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategoryType(ctx, field.Selections, res)
+	return ec.marshalNCategoryType2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryType(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Category_type(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2418,7 +2395,7 @@ func (ec *executionContext) _Category_icon(ctx context.Context, field graphql.Co
 	}
 	res := resTmp.(*pg.Icon)
 	fc.Result = res
-	return ec.marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐIcon(ctx, field.Selections, res)
+	return ec.marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐIcon(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Category_icon(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2475,7 +2452,7 @@ func (ec *executionContext) _Category_parent(ctx context.Context, field graphql.
 	}
 	res := resTmp.(*pg.Category)
 	fc.Result = res
-	return ec.marshalOCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategory(ctx, field.Selections, res)
+	return ec.marshalOCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategory(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Category_parent(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2509,7 +2486,7 @@ func (ec *executionContext) fieldContext_Category_parent(ctx context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Event_id(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
+func (ec *executionContext) _Event_id(ctx context.Context, field graphql.CollectedField, obj *pg.Event) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Event_id(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -2553,7 +2530,7 @@ func (ec *executionContext) fieldContext_Event_id(ctx context.Context, field gra
 	return fc, nil
 }
 
-func (ec *executionContext) _Event_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
+func (ec *executionContext) _Event_createdAt(ctx context.Context, field graphql.CollectedField, obj *pg.Event) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Event_createdAt(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -2597,7 +2574,7 @@ func (ec *executionContext) fieldContext_Event_createdAt(ctx context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Event_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
+func (ec *executionContext) _Event_updatedAt(ctx context.Context, field graphql.CollectedField, obj *pg.Event) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Event_updatedAt(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -2641,7 +2618,7 @@ func (ec *executionContext) fieldContext_Event_updatedAt(ctx context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Event_deletedAt(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
+func (ec *executionContext) _Event_deletedAt(ctx context.Context, field graphql.CollectedField, obj *pg.Event) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Event_deletedAt(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -2655,7 +2632,7 @@ func (ec *executionContext) _Event_deletedAt(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.DeletedAt, nil
+		return ec.resolvers.Event().DeletedAt(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2673,8 +2650,8 @@ func (ec *executionContext) fieldContext_Event_deletedAt(ctx context.Context, fi
 	fc = &graphql.FieldContext{
 		Object:     "Event",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -2682,7 +2659,7 @@ func (ec *executionContext) fieldContext_Event_deletedAt(ctx context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Event_name(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
+func (ec *executionContext) _Event_name(ctx context.Context, field graphql.CollectedField, obj *pg.Event) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Event_name(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -2726,7 +2703,7 @@ func (ec *executionContext) fieldContext_Event_name(ctx context.Context, field g
 	return fc, nil
 }
 
-func (ec *executionContext) _Event_description(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
+func (ec *executionContext) _Event_description(ctx context.Context, field graphql.CollectedField, obj *pg.Event) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Event_description(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -2770,7 +2747,7 @@ func (ec *executionContext) fieldContext_Event_description(ctx context.Context, 
 	return fc, nil
 }
 
-func (ec *executionContext) _Event_icon(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
+func (ec *executionContext) _Event_icon(ctx context.Context, field graphql.CollectedField, obj *pg.Event) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Event_icon(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -2798,7 +2775,7 @@ func (ec *executionContext) _Event_icon(ctx context.Context, field graphql.Colle
 	}
 	res := resTmp.(*pg.Icon)
 	fc.Result = res
-	return ec.marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐIcon(ctx, field.Selections, res)
+	return ec.marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐIcon(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Event_icon(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2830,7 +2807,7 @@ func (ec *executionContext) fieldContext_Event_icon(ctx context.Context, field g
 	return fc, nil
 }
 
-func (ec *executionContext) _Event_background(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
+func (ec *executionContext) _Event_background(ctx context.Context, field graphql.CollectedField, obj *pg.Event) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Event_background(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -2853,9 +2830,9 @@ func (ec *executionContext) _Event_background(ctx context.Context, field graphql
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*string)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+	return ec.marshalOString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Event_background(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3017,7 +2994,7 @@ func (ec *executionContext) _Icon_deletedAt(ctx context.Context, field graphql.C
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Icon().DeletedAt(rctx, obj)
+		return obj.DeletedAt, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3035,8 +3012,8 @@ func (ec *executionContext) fieldContext_Icon_deletedAt(ctx context.Context, fie
 	fc = &graphql.FieldContext{
 		Object:     "Icon",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -3146,7 +3123,7 @@ func (ec *executionContext) _Icon_type(ctx context.Context, field graphql.Collec
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Icon().Type(rctx, obj)
+		return obj.Type, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3164,8 +3141,8 @@ func (ec *executionContext) fieldContext_Icon_type(ctx context.Context, field gr
 	fc = &graphql.FieldContext{
 		Object:     "Icon",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -3327,7 +3304,7 @@ func (ec *executionContext) _Mutation_createIcon(ctx context.Context, field grap
 	}
 	res := resTmp.(*pg.Icon)
 	fc.Result = res
-	return ec.marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐIcon(ctx, field.Selections, res)
+	return ec.marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐIcon(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_createIcon(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3396,9 +3373,9 @@ func (ec *executionContext) _Mutation_createEvent(ctx context.Context, field gra
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Event)
+	res := resTmp.(*pg.Event)
 	fc.Result = res
-	return ec.marshalNEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋgraphᚋmodelᚐEvent(ctx, field.Selections, res)
+	return ec.marshalNEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐEvent(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_createEvent(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3471,7 +3448,7 @@ func (ec *executionContext) _Mutation_createCategory(ctx context.Context, field 
 	}
 	res := resTmp.(*pg.Category)
 	fc.Result = res
-	return ec.marshalNCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategory(ctx, field.Selections, res)
+	return ec.marshalNCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategory(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_createCategory(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3550,7 +3527,7 @@ func (ec *executionContext) _Mutation_createBudget(ctx context.Context, field gr
 		if data, ok := tmp.(*pg.Budget); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/khangle880/share_room/pg.Budget`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/khangle880/share_room/pg/sqlc.Budget`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3564,7 +3541,7 @@ func (ec *executionContext) _Mutation_createBudget(ctx context.Context, field gr
 	}
 	res := resTmp.(*pg.Budget)
 	fc.Result = res
-	return ec.marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐBudget(ctx, field.Selections, res)
+	return ec.marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐBudget(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_createBudget(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3649,7 +3626,7 @@ func (ec *executionContext) _Mutation_createTransaction(ctx context.Context, fie
 	}
 	res := resTmp.(*pg.Transaction)
 	fc.Result = res
-	return ec.marshalNTransaction2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐTransaction(ctx, field.Selections, res)
+	return ec.marshalNTransaction2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐTransaction(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_createTransaction(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3732,7 +3709,7 @@ func (ec *executionContext) _Mutation_updateBudget(ctx context.Context, field gr
 	}
 	res := resTmp.(*pg.Budget)
 	fc.Result = res
-	return ec.marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐBudget(ctx, field.Selections, res)
+	return ec.marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐBudget(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_updateBudget(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3862,7 +3839,7 @@ func (ec *executionContext) _Mutation_deleteUser(ctx context.Context, field grap
 			return ec.resolvers.Mutation().DeleteUser(rctx, fc.Args["id"].(uuid.UUID))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
-			role, err := ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx, "ADMIN")
+			role, err := ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, "ADMIN")
 			if err != nil {
 				return nil, err
 			}
@@ -4069,7 +4046,7 @@ func (ec *executionContext) _Profile_deletedAt(ctx context.Context, field graphq
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Profile().DeletedAt(rctx, obj)
+		return obj.DeletedAt, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4087,8 +4064,8 @@ func (ec *executionContext) fieldContext_Profile_deletedAt(ctx context.Context, 
 	fc = &graphql.FieldContext{
 		Object:     "Profile",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -4124,7 +4101,7 @@ func (ec *executionContext) _Profile_role(ctx context.Context, field graphql.Col
 	}
 	res := resTmp.(pg.UserRole)
 	fc.Result = res
-	return ec.marshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx, field.Selections, res)
+	return ec.marshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Profile_role(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4154,7 +4131,7 @@ func (ec *executionContext) _Profile_firstname(ctx context.Context, field graphq
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Profile().Firstname(rctx, obj)
+		return obj.Firstname, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4172,8 +4149,8 @@ func (ec *executionContext) fieldContext_Profile_firstname(ctx context.Context, 
 	fc = &graphql.FieldContext{
 		Object:     "Profile",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -4195,7 +4172,7 @@ func (ec *executionContext) _Profile_lastname(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Profile().Lastname(rctx, obj)
+		return obj.Lastname, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4213,8 +4190,8 @@ func (ec *executionContext) fieldContext_Profile_lastname(ctx context.Context, f
 	fc = &graphql.FieldContext{
 		Object:     "Profile",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -4277,7 +4254,7 @@ func (ec *executionContext) _Profile_bio(ctx context.Context, field graphql.Coll
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Profile().Bio(rctx, obj)
+		return obj.Bio, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4295,8 +4272,8 @@ func (ec *executionContext) fieldContext_Profile_bio(ctx context.Context, field 
 	fc = &graphql.FieldContext{
 		Object:     "Profile",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -4318,7 +4295,7 @@ func (ec *executionContext) _Profile_avatar(ctx context.Context, field graphql.C
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Profile().Avatar(rctx, obj)
+		return obj.Avatar, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4336,10 +4313,76 @@ func (ec *executionContext) fieldContext_Profile_avatar(ctx context.Context, fie
 	fc = &graphql.FieldContext{
 		Object:     "Profile",
 		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_profile(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_profile(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Profile(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*pg.User)
+	fc.Result = res
+	return ec.marshalNUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUser(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_profile(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_User_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_User_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_User_updatedAt(ctx, field)
+			case "deletedAt":
+				return ec.fieldContext_User_deletedAt(ctx, field)
+			case "lastJoinAt":
+				return ec.fieldContext_User_lastJoinAt(ctx, field)
+			case "username":
+				return ec.fieldContext_User_username(ctx, field)
+			case "hashedPassword":
+				return ec.fieldContext_User_hashedPassword(ctx, field)
+			case "email":
+				return ec.fieldContext_User_email(ctx, field)
+			case "phone":
+				return ec.fieldContext_User_phone(ctx, field)
+			case "profile":
+				return ec.fieldContext_User_profile(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
 		},
 	}
 	return fc, nil
@@ -4358,8 +4401,28 @@ func (ec *executionContext) _Query_users(ctx context.Context, field graphql.Coll
 		}
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Users(rctx, fc.Args["role"].(pg.UserRole))
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Query().Users(rctx, fc.Args["role"].(pg.UserRole))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Auth == nil {
+				return nil, errors.New("directive auth is not implemented")
+			}
+			return ec.directives.Auth(ctx, nil, directive0)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.([]pg.User); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be []github.com/khangle880/share_room/pg/sqlc.User`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4373,7 +4436,7 @@ func (ec *executionContext) _Query_users(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.([]pg.User)
 	fc.Result = res
-	return ec.marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserᚄ(ctx, field.Selections, res)
+	return ec.marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_users(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4392,8 +4455,8 @@ func (ec *executionContext) fieldContext_Query_users(ctx context.Context, field 
 				return ec.fieldContext_User_updatedAt(ctx, field)
 			case "deletedAt":
 				return ec.fieldContext_User_deletedAt(ctx, field)
-			case "lastLoginAt":
-				return ec.fieldContext_User_lastLoginAt(ctx, field)
+			case "lastJoinAt":
+				return ec.fieldContext_User_lastJoinAt(ctx, field)
 			case "username":
 				return ec.fieldContext_User_username(ctx, field)
 			case "hashedPassword":
@@ -4450,7 +4513,7 @@ func (ec *executionContext) _Query_categories(ctx context.Context, field graphql
 	}
 	res := resTmp.([]pg.Category)
 	fc.Result = res
-	return ec.marshalNCategory2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategoryᚄ(ctx, field.Selections, res)
+	return ec.marshalNCategory2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_categories(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4529,7 +4592,7 @@ func (ec *executionContext) _Query_budgets(ctx context.Context, field graphql.Co
 		if data, ok := tmp.([]pg.Budget); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be []github.com/khangle880/share_room/pg.Budget`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be []github.com/khangle880/share_room/pg/sqlc.Budget`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4543,7 +4606,7 @@ func (ec *executionContext) _Query_budgets(ctx context.Context, field graphql.Co
 	}
 	res := resTmp.([]pg.Budget)
 	fc.Result = res
-	return ec.marshalNBudget2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐBudgetᚄ(ctx, field.Selections, res)
+	return ec.marshalNBudget2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐBudgetᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_budgets(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4864,7 +4927,7 @@ func (ec *executionContext) _Room_deletedAt(ctx context.Context, field graphql.C
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Room().DeletedAt(rctx, obj)
+		return obj.DeletedAt, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4882,8 +4945,8 @@ func (ec *executionContext) fieldContext_Room_deletedAt(ctx context.Context, fie
 	fc = &graphql.FieldContext{
 		Object:     "Room",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -4949,7 +5012,7 @@ func (ec *executionContext) _Room_address(ctx context.Context, field graphql.Col
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Room().Address(rctx, obj)
+		return obj.Address, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4967,8 +5030,8 @@ func (ec *executionContext) fieldContext_Room_address(ctx context.Context, field
 	fc = &graphql.FieldContext{
 		Object:     "Room",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -5004,7 +5067,7 @@ func (ec *executionContext) _Room_admin(ctx context.Context, field graphql.Colle
 	}
 	res := resTmp.(*pg.User)
 	fc.Result = res
-	return ec.marshalNUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUser(ctx, field.Selections, res)
+	return ec.marshalNUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Room_admin(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5023,8 +5086,8 @@ func (ec *executionContext) fieldContext_Room_admin(ctx context.Context, field g
 				return ec.fieldContext_User_updatedAt(ctx, field)
 			case "deletedAt":
 				return ec.fieldContext_User_deletedAt(ctx, field)
-			case "lastLoginAt":
-				return ec.fieldContext_User_lastLoginAt(ctx, field)
+			case "lastJoinAt":
+				return ec.fieldContext_User_lastJoinAt(ctx, field)
 			case "username":
 				return ec.fieldContext_User_username(ctx, field)
 			case "hashedPassword":
@@ -5070,7 +5133,7 @@ func (ec *executionContext) _Room_member(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.([]pg.User)
 	fc.Result = res
-	return ec.marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserᚄ(ctx, field.Selections, res)
+	return ec.marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Room_member(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5089,8 +5152,8 @@ func (ec *executionContext) fieldContext_Room_member(ctx context.Context, field 
 				return ec.fieldContext_User_updatedAt(ctx, field)
 			case "deletedAt":
 				return ec.fieldContext_User_deletedAt(ctx, field)
-			case "lastLoginAt":
-				return ec.fieldContext_User_lastLoginAt(ctx, field)
+			case "lastJoinAt":
+				return ec.fieldContext_User_lastJoinAt(ctx, field)
 			case "username":
 				return ec.fieldContext_User_username(ctx, field)
 			case "hashedPassword":
@@ -5122,7 +5185,7 @@ func (ec *executionContext) _Room_avatar(ctx context.Context, field graphql.Coll
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Room().Avatar(rctx, obj)
+		return obj.Avatar, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5140,8 +5203,8 @@ func (ec *executionContext) fieldContext_Room_avatar(ctx context.Context, field 
 	fc = &graphql.FieldContext{
 		Object:     "Room",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -5163,7 +5226,7 @@ func (ec *executionContext) _Room_background(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Room().Background(rctx, obj)
+		return obj.Background, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5181,8 +5244,8 @@ func (ec *executionContext) fieldContext_Room_background(ctx context.Context, fi
 	fc = &graphql.FieldContext{
 		Object:     "Room",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -5297,7 +5360,7 @@ func (ec *executionContext) _Token_user(ctx context.Context, field graphql.Colle
 	}
 	res := resTmp.(*pg.User)
 	fc.Result = res
-	return ec.marshalOUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUser(ctx, field.Selections, res)
+	return ec.marshalOUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Token_user(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5316,8 +5379,8 @@ func (ec *executionContext) fieldContext_Token_user(ctx context.Context, field g
 				return ec.fieldContext_User_updatedAt(ctx, field)
 			case "deletedAt":
 				return ec.fieldContext_User_deletedAt(ctx, field)
-			case "lastLoginAt":
-				return ec.fieldContext_User_lastLoginAt(ctx, field)
+			case "lastJoinAt":
+				return ec.fieldContext_User_lastJoinAt(ctx, field)
 			case "username":
 				return ec.fieldContext_User_username(ctx, field)
 			case "hashedPassword":
@@ -5481,7 +5544,7 @@ func (ec *executionContext) _Transaction_deletedAt(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Transaction().DeletedAt(rctx, obj)
+		return obj.DeletedAt, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5499,8 +5562,8 @@ func (ec *executionContext) fieldContext_Transaction_deletedAt(ctx context.Conte
 	fc = &graphql.FieldContext{
 		Object:     "Transaction",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -5536,7 +5599,7 @@ func (ec *executionContext) _Transaction_category(ctx context.Context, field gra
 	}
 	res := resTmp.(*pg.Category)
 	fc.Result = res
-	return ec.marshalNCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategory(ctx, field.Selections, res)
+	return ec.marshalNCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategory(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Transaction_category(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5598,7 +5661,7 @@ func (ec *executionContext) _Transaction_budget(ctx context.Context, field graph
 	}
 	res := resTmp.(*pg.Budget)
 	fc.Result = res
-	return ec.marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐBudget(ctx, field.Selections, res)
+	return ec.marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐBudget(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Transaction_budget(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5667,9 +5730,9 @@ func (ec *executionContext) _Transaction_event(ctx context.Context, field graphq
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*model.Event)
+	res := resTmp.(*pg.Event)
 	fc.Result = res
-	return ec.marshalOEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋgraphᚋmodelᚐEvent(ctx, field.Selections, res)
+	return ec.marshalOEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐEvent(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Transaction_event(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5717,7 +5780,7 @@ func (ec *executionContext) _Transaction_description(ctx context.Context, field 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Transaction().Description(rctx, obj)
+		return obj.Description, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5735,8 +5798,8 @@ func (ec *executionContext) fieldContext_Transaction_description(ctx context.Con
 	fc = &graphql.FieldContext{
 		Object:     "Transaction",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -5816,7 +5879,7 @@ func (ec *executionContext) _Transaction_creators(ctx context.Context, field gra
 	}
 	res := resTmp.([]pg.User)
 	fc.Result = res
-	return ec.marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserᚄ(ctx, field.Selections, res)
+	return ec.marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Transaction_creators(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5835,8 +5898,8 @@ func (ec *executionContext) fieldContext_Transaction_creators(ctx context.Contex
 				return ec.fieldContext_User_updatedAt(ctx, field)
 			case "deletedAt":
 				return ec.fieldContext_User_deletedAt(ctx, field)
-			case "lastLoginAt":
-				return ec.fieldContext_User_lastLoginAt(ctx, field)
+			case "lastJoinAt":
+				return ec.fieldContext_User_lastJoinAt(ctx, field)
 			case "username":
 				return ec.fieldContext_User_username(ctx, field)
 			case "hashedPassword":
@@ -5879,7 +5942,7 @@ func (ec *executionContext) _Transaction_partners(ctx context.Context, field gra
 	}
 	res := resTmp.([]pg.User)
 	fc.Result = res
-	return ec.marshalOUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserᚄ(ctx, field.Selections, res)
+	return ec.marshalOUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Transaction_partners(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -5898,8 +5961,8 @@ func (ec *executionContext) fieldContext_Transaction_partners(ctx context.Contex
 				return ec.fieldContext_User_updatedAt(ctx, field)
 			case "deletedAt":
 				return ec.fieldContext_User_deletedAt(ctx, field)
-			case "lastLoginAt":
-				return ec.fieldContext_User_lastLoginAt(ctx, field)
+			case "lastJoinAt":
+				return ec.fieldContext_User_lastJoinAt(ctx, field)
 			case "username":
 				return ec.fieldContext_User_username(ctx, field)
 			case "hashedPassword":
@@ -6148,7 +6211,7 @@ func (ec *executionContext) _User_deletedAt(ctx context.Context, field graphql.C
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.User().DeletedAt(rctx, obj)
+		return obj.DeletedAt, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -6166,8 +6229,8 @@ func (ec *executionContext) fieldContext_User_deletedAt(ctx context.Context, fie
 	fc = &graphql.FieldContext{
 		Object:     "User",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -6175,8 +6238,8 @@ func (ec *executionContext) fieldContext_User_deletedAt(ctx context.Context, fie
 	return fc, nil
 }
 
-func (ec *executionContext) _User_lastLoginAt(ctx context.Context, field graphql.CollectedField, obj *pg.User) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_User_lastLoginAt(ctx, field)
+func (ec *executionContext) _User_lastJoinAt(ctx context.Context, field graphql.CollectedField, obj *pg.User) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_User_lastJoinAt(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -6189,7 +6252,7 @@ func (ec *executionContext) _User_lastLoginAt(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.User().LastLoginAt(rctx, obj)
+		return obj.LastJoinAt, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -6201,17 +6264,17 @@ func (ec *executionContext) _User_lastLoginAt(ctx context.Context, field graphql
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*time.Time)
+	res := resTmp.(time.Time)
 	fc.Result = res
-	return ec.marshalNTime2ᚖtimeᚐTime(ctx, field.Selections, res)
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_User_lastLoginAt(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_User_lastJoinAt(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "User",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
 		},
@@ -6321,7 +6384,7 @@ func (ec *executionContext) _User_email(ctx context.Context, field graphql.Colle
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.User().Email(rctx, obj)
+		return obj.Email, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -6339,8 +6402,8 @@ func (ec *executionContext) fieldContext_User_email(ctx context.Context, field g
 	fc = &graphql.FieldContext{
 		Object:     "User",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -6362,7 +6425,7 @@ func (ec *executionContext) _User_phone(ctx context.Context, field graphql.Colle
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.User().Phone(rctx, obj)
+		return obj.Phone, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -6380,8 +6443,8 @@ func (ec *executionContext) fieldContext_User_phone(ctx context.Context, field g
 	fc = &graphql.FieldContext{
 		Object:     "User",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
@@ -6417,7 +6480,7 @@ func (ec *executionContext) _User_profile(ctx context.Context, field graphql.Col
 	}
 	res := resTmp.(*pg.Profile)
 	fc.Result = res
-	return ec.marshalNProfile2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐProfile(ctx, field.Selections, res)
+	return ec.marshalNProfile2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐProfile(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_User_profile(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8347,7 +8410,7 @@ func (ec *executionContext) unmarshalInputCreateCategoryInput(ctx context.Contex
 			it.Name = data
 		case "type":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
-			data, err := ec.unmarshalNCategoryType2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategoryType(ctx, v)
+			data, err := ec.unmarshalNCategoryType2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryType(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8592,7 +8655,7 @@ func (ec *executionContext) unmarshalInputCreateUserInput(ctx context.Context, o
 			it.Lastname = data
 		case "role":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("role"))
-			data, err := ec.unmarshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx, v)
+			data, err := ec.unmarshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8741,7 +8804,7 @@ func (ec *executionContext) unmarshalInputUpdateUserInput(ctx context.Context, o
 			it.Lastname = data
 		case "role":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("role"))
-			data, err := ec.unmarshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx, v)
+			data, err := ec.unmarshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8801,76 +8864,14 @@ func (ec *executionContext) _Budget(ctx context.Context, sel ast.SelectionSet, o
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "deletedAt":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Budget_deletedAt(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Budget_deletedAt(ctx, field, obj)
 		case "name":
 			out.Values[i] = ec._Budget_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "description":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Budget_description(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Budget_description(ctx, field, obj)
 		case "amount":
 			field := field
 
@@ -9015,38 +9016,7 @@ func (ec *executionContext) _Budget(ctx context.Context, sel ast.SelectionSet, o
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "end_date":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Budget_end_date(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Budget_end_date(ctx, field, obj)
 		case "transactions":
 			field := field
 
@@ -9169,38 +9139,7 @@ func (ec *executionContext) _Category(ctx context.Context, sel ast.SelectionSet,
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "deletedAt":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Category_deletedAt(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Category_deletedAt(ctx, field, obj)
 		case "name":
 			out.Values[i] = ec._Category_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9305,7 +9244,7 @@ func (ec *executionContext) _Category(ctx context.Context, sel ast.SelectionSet,
 
 var eventImplementors = []string{"Event"}
 
-func (ec *executionContext) _Event(ctx context.Context, sel ast.SelectionSet, obj *model.Event) graphql.Marshaler {
+func (ec *executionContext) _Event(ctx context.Context, sel ast.SelectionSet, obj *pg.Event) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, eventImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -9330,7 +9269,38 @@ func (ec *executionContext) _Event(ctx context.Context, sel ast.SelectionSet, ob
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "deletedAt":
-			out.Values[i] = ec._Event_deletedAt(ctx, field, obj)
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Event_deletedAt(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "name":
 			out.Values[i] = ec._Event_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9416,94 +9386,32 @@ func (ec *executionContext) _Icon(ctx context.Context, sel ast.SelectionSet, obj
 		case "id":
 			out.Values[i] = ec._Icon_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "createdAt":
 			out.Values[i] = ec._Icon_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Icon_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "deletedAt":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Icon_deletedAt(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Icon_deletedAt(ctx, field, obj)
 		case "name":
 			out.Values[i] = ec._Icon_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "url":
 			out.Values[i] = ec._Icon_url(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "type":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Icon_type(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Icon_type(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9653,190 +9561,35 @@ func (ec *executionContext) _Profile(ctx context.Context, sel ast.SelectionSet, 
 		case "id":
 			out.Values[i] = ec._Profile_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "createdAt":
 			out.Values[i] = ec._Profile_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Profile_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "deletedAt":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Profile_deletedAt(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Profile_deletedAt(ctx, field, obj)
 		case "role":
 			out.Values[i] = ec._Profile_role(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "firstname":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Profile_firstname(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Profile_firstname(ctx, field, obj)
 		case "lastname":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Profile_lastname(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Profile_lastname(ctx, field, obj)
 		case "dob":
 			out.Values[i] = ec._Profile_dob(ctx, field, obj)
 		case "bio":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Profile_bio(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Profile_bio(ctx, field, obj)
 		case "avatar":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Profile_avatar(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Profile_avatar(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9879,6 +9632,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
+		case "profile":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_profile(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "users":
 			field := field
 
@@ -10003,76 +9778,14 @@ func (ec *executionContext) _Room(ctx context.Context, sel ast.SelectionSet, obj
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "deletedAt":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Room_deletedAt(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Room_deletedAt(ctx, field, obj)
 		case "name":
 			out.Values[i] = ec._Room_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "address":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Room_address(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Room_address(ctx, field, obj)
 		case "admin":
 			field := field
 
@@ -10146,71 +9859,9 @@ func (ec *executionContext) _Room(ctx context.Context, sel ast.SelectionSet, obj
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "avatar":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Room_avatar(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Room_avatar(ctx, field, obj)
 		case "background":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Room_background(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Room_background(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10301,38 +9952,7 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "deletedAt":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Transaction_deletedAt(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Transaction_deletedAt(ctx, field, obj)
 		case "category":
 			field := field
 
@@ -10439,38 +10059,7 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "description":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Transaction_description(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._Transaction_description(ctx, field, obj)
 		case "excTime":
 			out.Values[i] = ec._Transaction_excTime(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10633,74 +10222,12 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "deletedAt":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._User_deletedAt(ctx, field, obj)
-				return res
+			out.Values[i] = ec._User_deletedAt(ctx, field, obj)
+		case "lastJoinAt":
+			out.Values[i] = ec._User_lastJoinAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
 			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "lastLoginAt":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._User_lastLoginAt(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "username":
 			out.Values[i] = ec._User_username(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10712,71 +10239,9 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "email":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._User_email(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._User_email(ctx, field, obj)
 		case "phone":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._User_phone(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			out.Values[i] = ec._User_phone(ctx, field, obj)
 		case "profile":
 			field := field
 
@@ -11177,11 +10642,11 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNBudget2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐBudget(ctx context.Context, sel ast.SelectionSet, v pg.Budget) graphql.Marshaler {
+func (ec *executionContext) marshalNBudget2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐBudget(ctx context.Context, sel ast.SelectionSet, v pg.Budget) graphql.Marshaler {
 	return ec._Budget(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNBudget2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐBudgetᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.Budget) graphql.Marshaler {
+func (ec *executionContext) marshalNBudget2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐBudgetᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.Budget) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11205,7 +10670,7 @@ func (ec *executionContext) marshalNBudget2ᚕgithubᚗcomᚋkhangle880ᚋshare_
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNBudget2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐBudget(ctx, sel, v[i])
+			ret[i] = ec.marshalNBudget2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐBudget(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11225,7 +10690,7 @@ func (ec *executionContext) marshalNBudget2ᚕgithubᚗcomᚋkhangle880ᚋshare_
 	return ret
 }
 
-func (ec *executionContext) marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐBudget(ctx context.Context, sel ast.SelectionSet, v *pg.Budget) graphql.Marshaler {
+func (ec *executionContext) marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐBudget(ctx context.Context, sel ast.SelectionSet, v *pg.Budget) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -11235,11 +10700,11 @@ func (ec *executionContext) marshalNBudget2ᚖgithubᚗcomᚋkhangle880ᚋshare_
 	return ec._Budget(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategory2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategory(ctx context.Context, sel ast.SelectionSet, v pg.Category) graphql.Marshaler {
+func (ec *executionContext) marshalNCategory2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategory(ctx context.Context, sel ast.SelectionSet, v pg.Category) graphql.Marshaler {
 	return ec._Category(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNCategory2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategoryᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.Category) graphql.Marshaler {
+func (ec *executionContext) marshalNCategory2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.Category) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11263,7 +10728,7 @@ func (ec *executionContext) marshalNCategory2ᚕgithubᚗcomᚋkhangle880ᚋshar
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategory2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategory(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategory2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategory(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11283,7 +10748,7 @@ func (ec *executionContext) marshalNCategory2ᚕgithubᚗcomᚋkhangle880ᚋshar
 	return ret
 }
 
-func (ec *executionContext) marshalNCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategory(ctx context.Context, sel ast.SelectionSet, v *pg.Category) graphql.Marshaler {
+func (ec *executionContext) marshalNCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategory(ctx context.Context, sel ast.SelectionSet, v *pg.Category) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -11293,13 +10758,13 @@ func (ec *executionContext) marshalNCategory2ᚖgithubᚗcomᚋkhangle880ᚋshar
 	return ec._Category(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNCategoryType2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategoryType(ctx context.Context, v interface{}) (pg.CategoryType, error) {
+func (ec *executionContext) unmarshalNCategoryType2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryType(ctx context.Context, v interface{}) (pg.CategoryType, error) {
 	tmp, err := graphql.UnmarshalString(v)
 	res := pg.CategoryType(tmp)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNCategoryType2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategoryType(ctx context.Context, sel ast.SelectionSet, v pg.CategoryType) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryType2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryType(ctx context.Context, sel ast.SelectionSet, v pg.CategoryType) graphql.Marshaler {
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -11339,11 +10804,11 @@ func (ec *executionContext) unmarshalNCreateUserInput2githubᚗcomᚋkhangle880�
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNEvent2githubᚗcomᚋkhangle880ᚋshare_roomᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v model.Event) graphql.Marshaler {
+func (ec *executionContext) marshalNEvent2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐEvent(ctx context.Context, sel ast.SelectionSet, v pg.Event) graphql.Marshaler {
 	return ec._Event(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v *model.Event) graphql.Marshaler {
+func (ec *executionContext) marshalNEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐEvent(ctx context.Context, sel ast.SelectionSet, v *pg.Event) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -11368,11 +10833,11 @@ func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.S
 	return graphql.WrapContextMarshaler(ctx, res)
 }
 
-func (ec *executionContext) marshalNIcon2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐIcon(ctx context.Context, sel ast.SelectionSet, v pg.Icon) graphql.Marshaler {
+func (ec *executionContext) marshalNIcon2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐIcon(ctx context.Context, sel ast.SelectionSet, v pg.Icon) graphql.Marshaler {
 	return ec._Icon(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐIcon(ctx context.Context, sel ast.SelectionSet, v *pg.Icon) graphql.Marshaler {
+func (ec *executionContext) marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐIcon(ctx context.Context, sel ast.SelectionSet, v *pg.Icon) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -11382,11 +10847,11 @@ func (ec *executionContext) marshalNIcon2ᚖgithubᚗcomᚋkhangle880ᚋshare_ro
 	return ec._Icon(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProfile2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐProfile(ctx context.Context, sel ast.SelectionSet, v pg.Profile) graphql.Marshaler {
+func (ec *executionContext) marshalNProfile2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐProfile(ctx context.Context, sel ast.SelectionSet, v pg.Profile) graphql.Marshaler {
 	return ec._Profile(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNProfile2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐProfile(ctx context.Context, sel ast.SelectionSet, v *pg.Profile) graphql.Marshaler {
+func (ec *executionContext) marshalNProfile2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐProfile(ctx context.Context, sel ast.SelectionSet, v *pg.Profile) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -11426,27 +10891,6 @@ func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) unmarshalNTime2ᚖtimeᚐTime(ctx context.Context, v interface{}) (*time.Time, error) {
-	res, err := graphql.UnmarshalTime(v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNTime2ᚖtimeᚐTime(ctx context.Context, sel ast.SelectionSet, v *time.Time) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	res := graphql.MarshalTime(*v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-	}
-	return res
-}
-
 func (ec *executionContext) marshalNToken2githubᚗcomᚋkhangle880ᚋshare_roomᚋgraphᚋmodelᚐToken(ctx context.Context, sel ast.SelectionSet, v model.Token) graphql.Marshaler {
 	return ec._Token(ctx, sel, &v)
 }
@@ -11461,11 +10905,11 @@ func (ec *executionContext) marshalNToken2ᚖgithubᚗcomᚋkhangle880ᚋshare_r
 	return ec._Token(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTransaction2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐTransaction(ctx context.Context, sel ast.SelectionSet, v pg.Transaction) graphql.Marshaler {
+func (ec *executionContext) marshalNTransaction2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐTransaction(ctx context.Context, sel ast.SelectionSet, v pg.Transaction) graphql.Marshaler {
 	return ec._Transaction(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTransaction2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐTransactionᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.Transaction) graphql.Marshaler {
+func (ec *executionContext) marshalNTransaction2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐTransactionᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.Transaction) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11489,7 +10933,7 @@ func (ec *executionContext) marshalNTransaction2ᚕgithubᚗcomᚋkhangle880ᚋs
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTransaction2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐTransaction(ctx, sel, v[i])
+			ret[i] = ec.marshalNTransaction2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐTransaction(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11509,7 +10953,7 @@ func (ec *executionContext) marshalNTransaction2ᚕgithubᚗcomᚋkhangle880ᚋs
 	return ret
 }
 
-func (ec *executionContext) marshalNTransaction2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐTransaction(ctx context.Context, sel ast.SelectionSet, v *pg.Transaction) graphql.Marshaler {
+func (ec *executionContext) marshalNTransaction2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐTransaction(ctx context.Context, sel ast.SelectionSet, v *pg.Transaction) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -11571,11 +11015,11 @@ func (ec *executionContext) unmarshalNUpdateBudgetInput2githubᚗcomᚋkhangle88
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNUser2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUser(ctx context.Context, sel ast.SelectionSet, v pg.User) graphql.Marshaler {
+func (ec *executionContext) marshalNUser2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUser(ctx context.Context, sel ast.SelectionSet, v pg.User) graphql.Marshaler {
 	return ec._User(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.User) graphql.Marshaler {
+func (ec *executionContext) marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.User) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11599,7 +11043,7 @@ func (ec *executionContext) marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_ro
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNUser2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUser(ctx, sel, v[i])
+			ret[i] = ec.marshalNUser2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUser(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11619,7 +11063,7 @@ func (ec *executionContext) marshalNUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_ro
 	return ret
 }
 
-func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUser(ctx context.Context, sel ast.SelectionSet, v *pg.User) graphql.Marshaler {
+func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUser(ctx context.Context, sel ast.SelectionSet, v *pg.User) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -11629,13 +11073,13 @@ func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_ro
 	return ec._User(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx context.Context, v interface{}) (pg.UserRole, error) {
+func (ec *executionContext) unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx context.Context, v interface{}) (pg.UserRole, error) {
 	tmp, err := graphql.UnmarshalString(v)
 	res := pg.UserRole(tmp)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx context.Context, sel ast.SelectionSet, v pg.UserRole) graphql.Marshaler {
+func (ec *executionContext) marshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx context.Context, sel ast.SelectionSet, v pg.UserRole) graphql.Marshaler {
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -11932,14 +11376,14 @@ func (ec *executionContext) unmarshalOBudgetFilter2ᚖgithubᚗcomᚋkhangle880�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐCategory(ctx context.Context, sel ast.SelectionSet, v *pg.Category) graphql.Marshaler {
+func (ec *executionContext) marshalOCategory2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategory(ctx context.Context, sel ast.SelectionSet, v *pg.Category) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Category(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋgraphᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v *model.Event) graphql.Marshaler {
+func (ec *executionContext) marshalOEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐEvent(ctx context.Context, sel ast.SelectionSet, v *pg.Event) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -11978,7 +11422,7 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
-func (ec *executionContext) unmarshalOPeriodType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐPeriodType(ctx context.Context, v interface{}) (*pg.PeriodType, error) {
+func (ec *executionContext) unmarshalOPeriodType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐPeriodType(ctx context.Context, v interface{}) (*pg.PeriodType, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11987,7 +11431,7 @@ func (ec *executionContext) unmarshalOPeriodType2ᚖgithubᚗcomᚋkhangle880ᚋ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOPeriodType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐPeriodType(ctx context.Context, sel ast.SelectionSet, v *pg.PeriodType) graphql.Marshaler {
+func (ec *executionContext) marshalOPeriodType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐPeriodType(ctx context.Context, sel ast.SelectionSet, v *pg.PeriodType) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -11995,11 +11439,21 @@ func (ec *executionContext) marshalOPeriodType2ᚖgithubᚗcomᚋkhangle880ᚋsh
 	return res
 }
 
-func (ec *executionContext) marshalORoom2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐRoom(ctx context.Context, sel ast.SelectionSet, v *pg.Room) graphql.Marshaler {
+func (ec *executionContext) marshalORoom2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐRoom(ctx context.Context, sel ast.SelectionSet, v *pg.Room) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Room(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOString2string(ctx context.Context, v interface{}) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	res := graphql.MarshalString(v)
+	return res
 }
 
 func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
@@ -12136,7 +11590,7 @@ func (ec *executionContext) marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(
 	return res
 }
 
-func (ec *executionContext) marshalOUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.User) graphql.Marshaler {
+func (ec *executionContext) marshalOUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserᚄ(ctx context.Context, sel ast.SelectionSet, v []pg.User) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -12163,7 +11617,7 @@ func (ec *executionContext) marshalOUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_ro
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNUser2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUser(ctx, sel, v[i])
+			ret[i] = ec.marshalNUser2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUser(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -12183,14 +11637,14 @@ func (ec *executionContext) marshalOUser2ᚕgithubᚗcomᚋkhangle880ᚋshare_ro
 	return ret
 }
 
-func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUser(ctx context.Context, sel ast.SelectionSet, v *pg.User) graphql.Marshaler {
+func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUser(ctx context.Context, sel ast.SelectionSet, v *pg.User) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._User(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx context.Context, v interface{}) (*pg.UserRole, error) {
+func (ec *executionContext) unmarshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx context.Context, v interface{}) (*pg.UserRole, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -12199,7 +11653,7 @@ func (ec *executionContext) unmarshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋsh
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚐUserRole(ctx context.Context, sel ast.SelectionSet, v *pg.UserRole) graphql.Marshaler {
+func (ec *executionContext) marshalOUserRole2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx context.Context, sel ast.SelectionSet, v *pg.UserRole) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

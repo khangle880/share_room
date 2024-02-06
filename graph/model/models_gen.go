@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/khangle880/share_room/pg"
+	pg "github.com/khangle880/share_room/pg/sqlc"
 )
 
 // Query Input
@@ -65,18 +65,6 @@ type CreateUserInput struct {
 	Role      *pg.UserRole `json:"role,omitempty"`
 	Bio       *string      `json:"bio,omitempty"`
 	Avatar    *string      `json:"avatar,omitempty"`
-}
-
-// Event type definition
-type Event struct {
-	ID          uuid.UUID  `json:"id"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
-	DeletedAt   *time.Time `json:"deletedAt,omitempty"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Icon        *pg.Icon   `json:"icon"`
-	Background  *string    `json:"background,omitempty"`
 }
 
 type Token struct {

@@ -3,11 +3,10 @@ package middleware
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/khangle880/share_room/pg"
+	pg "github.com/khangle880/share_room/pg/sqlc"
 	"github.com/khangle880/share_room/utils"
 )
 
@@ -25,7 +24,8 @@ func AuthMiddleware(repo *pg.RepoSvc) gin.HandlerFunc {
 		auth = auth[len(bearer):]
 		validate, err := utils.JwtValidate(context.Background(), auth)
 		if err != nil || !validate.Valid {
-			c.JSON(http.StatusForbidden, fmt.Sprintf("Invalid Token: %v", err))
+			utils.Log.Err(err).Msg("invalid token")
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Invalid token"})
 			return
 		}
 
@@ -36,16 +36,17 @@ func AuthMiddleware(repo *pg.RepoSvc) gin.HandlerFunc {
 		}
 		user, err := repo.GetUserByID(c.Request.Context(), customClaims.ID)
 		if err != nil {
+			utils.Log.Err(err).Msg("user not found")
 			c.Next()
 			return
 		}
-		ctx := context.WithValue(c.Request.Context(), contextKey("auth"), user)
-		profile, err := repo.GetProfileByUserID(c.Request.Context(), customClaims.ID)
-		if err != nil {
-			c.Next()
-			return
-		}
-		ctx = context.WithValue(ctx, contextKey("profile"), profile)
+		ctx := context.WithValue(c.Request.Context(), contextKey("auth"), &user)
+		// profile, err := repo.GetProfileByUserID(c.Request.Context(), customClaims.ID)
+		// if err != nil {
+		// 	c.Next()
+		// 	return
+		// }
+		// ctx = context.WithValue(ctx, contextKey("profile"), profile)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}

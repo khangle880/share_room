@@ -2,7 +2,7 @@ package graph
 
 import (
 	"github.com/khangle880/share_room/dataloaders"
-	"github.com/khangle880/share_room/pg"
+	"github.com/khangle880/share_room/pg/sqlc"
 )
 
 //go:generate go run github.com/99designs/gqlgen generate

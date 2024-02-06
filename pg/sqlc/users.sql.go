@@ -7,10 +7,9 @@ package pg
 
 import (
 	"context"
-	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -20,11 +19,11 @@ RETURNING id, created_at, updated_at, deleted_at, last_join_at, username, hashed
 `
 
 type CreateUserParams struct {
-	LastJoinAt     pgtype.Timestamp
-	Username       string
-	HashedPassword string
-	Email          sql.NullString
-	Phone          sql.NullString
+	LastJoinAt     time.Time `json:"last_join_at"`
+	Username       string    `json:"username"`
+	HashedPassword string    `json:"hashed_password"`
+	Email          *string   `json:"email"`
+	Phone          *string   `json:"phone"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -54,7 +53,7 @@ const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE email = $1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email sql.NullString) (User, error) {
+func (q *Queries) GetUserByEmail(ctx context.Context, email *string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByEmail, email)
 	var i User
 	err := row.Scan(
@@ -123,7 +122,7 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Us
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	items := []User{}
 	for rows.Next() {
 		var i User
 		if err := rows.Scan(

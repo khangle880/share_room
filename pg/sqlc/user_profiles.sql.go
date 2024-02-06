@@ -17,8 +17,8 @@ VALUES ($1, $2)
 `
 
 type CreateUserProfileParams struct {
-	UserID    uuid.UUID
-	ProfileID uuid.UUID
+	UserID    uuid.UUID `json:"user_id"`
+	ProfileID uuid.UUID `json:"profile_id"`
 }
 
 func (q *Queries) CreateUserProfile(ctx context.Context, arg CreateUserProfileParams) error {

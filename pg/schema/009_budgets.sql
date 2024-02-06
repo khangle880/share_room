@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS budgets (
     deleted_at TIMESTAMP,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    amount DECIMAL(12, 2) DEFAULT 0,
+    amount DECIMAL(20, 10) DEFAULT 0,
     icon_id UUID NOT NULL REFERENCES icons(id) ON DELETE CASCADE,
     room_id UUID REFERENCES rooms(id) ON DELETE CASCADE,
     period period_type,

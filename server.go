@@ -9,12 +9,12 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/tracelog"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/khangle880/share_room/dataloaders"
 	"github.com/khangle880/share_room/graph"
-	"github.com/khangle880/share_room/pg"
+	pg "github.com/khangle880/share_room/pg/sqlc"
 	"github.com/khangle880/share_room/utils"
-	zerologadapter "github.com/jackc/pgx-zerolog"
+	"github.com/rs/zerolog"
 
 	customMiddlerware "github.com/khangle880/share_room/middleware"
 )
@@ -60,22 +60,42 @@ func playgroundHandler() gin.HandlerFunc {
 		h.ServeHTTP(c.Writer, c.Request)
 	}
 }
+
+type MyQueryTracer struct {
+	log zerolog.Logger
+}
+
+func (t *MyQueryTracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	t.log.Trace().Msgf("Executing command: %v,\nargs: %v", data.SQL, data.Args)
+	return ctx
+}
+
+func (t *MyQueryTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
+	if data.Err != nil {
+		t.log.Error().Msgf("Query failed: %v", data.Err)
+	} else {
+		t.log.Debug().Msgf("Query succeeded: %v", data.CommandTag)
+	}
+}
+
 func main() {
-	dsn := os.Getenv("POSTGRESQL_URL")
-	// conn, err := pg.Open(dbURL)
-	conn, err := pgx.Connect(context.Background(), dsn)
+	// dsn := os.Getenv("POSTGRESQL_URL")
+	utils.GetLog()
+	config, err := pgxpool.ParseConfig("postgres://postgres:admin@localhost:5432/share_room")
+	if err != nil {
+		utils.GetLog().Err(err).Msg("Unable to parse connString")
+		os.Exit(1)
+	}
+	// config.ConnConfig.Tracer = &MyQueryTracer{log: *utils.GetLog()}
+	conn, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		utils.GetLog().Err(err).Msg("Can't connect to database:")
 		os.Exit(1)
 	}
-	defer conn.Close(context.Background())
+	defer conn.Close()
 
-	logger := zerologadapter.NewLogger(utils.Log)
-	conn.Config().Tracer = &tracelog.TraceLog{Logger: logger, LogLevel: tracelog.LogLevelTrace}
-
-	// db := sqldblogger.OpenDriver(dsn, conn.Driver(), zerologadapter.New(*utils.GetLog()))
-	// db.Ping()
 	repo := pg.NewRepository(conn)
+	dl := dataloaders.NewRetriever()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -86,13 +106,19 @@ func main() {
 	// Setting up gin
 	r := gin.New()
 	r.Use(customMiddlerware.DefaultStructuredLogger())
+	gin.ForceConsoleColor()
 	r.Use(gin.Recovery())
 	r.Use(customMiddlerware.GinContextToContextMiddleware())
 	r.Use(customMiddlerware.AuthMiddleware(repo))
-	dl := dataloaders.NewRetriever()
 	r.POST("/query", dataloaders.Middleware(repo), graphqlHandler(repo, dl))
 	r.GET("/", playgroundHandler())
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	log.Fatal(r.Run())
 }
+
+// srv := graphqlHandler(repo, dl)
+// http.Handle("/", playground.Handler("GraphQL playground", "/query"))
+// http.Handle("/query", srv)
+// log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
+// log.Fatal(http.ListenAndServe(":"+port, nil))

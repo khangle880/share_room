@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     event_id UUID REFERENCES events(id) ON DELETE CASCADE,
     exc_time TIMESTAMP NOT NULL,
     description TEXT,
-    amount DECIMAL(12, 2) DEFAULT 0,
+    amount DECIMAL(20, 10) DEFAULT 0,
     images VARCHAR (255) []
 );
 

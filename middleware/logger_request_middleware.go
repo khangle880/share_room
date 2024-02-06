@@ -4,15 +4,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/khangle880/share_room/utils"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
-
 
 // DefaultStructuredLogger logs a gin HTTP request in JSON format. Uses the
 // default logger from rs/zerolog.
 func DefaultStructuredLogger() gin.HandlerFunc {
-	return StructuredLogger(&log.Logger)
+	return StructuredLogger(utils.GetBaseLog())
 }
 
 // StructuredLogger logs a gin HTTP request in JSON format. Allows to set the

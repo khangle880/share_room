@@ -7,10 +7,9 @@ package pg
 
 import (
 	"context"
-	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createProfile = `-- name: CreateProfile :one
@@ -20,12 +19,12 @@ RETURNING id, created_at, updated_at, deleted_at, role, firstname, lastname, dob
 `
 
 type CreateProfileParams struct {
-	Role      UserRole
-	Firstname sql.NullString
-	Lastname  sql.NullString
-	Dob       pgtype.Timestamp
-	Bio       sql.NullString
-	Avatar    sql.NullString
+	Role      UserRole  `json:"role"`
+	Firstname *string   `json:"firstname"`
+	Lastname  *string   `json:"lastname"`
+	Dob       time.Time `json:"dob"`
+	Bio       *string   `json:"bio"`
+	Avatar    *string   `json:"avatar"`
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
@@ -93,7 +92,7 @@ func (q *Queries) GetProfilesByUserIDs(ctx context.Context, dollar_1 []uuid.UUID
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Profile
+	items := []Profile{}
 	for rows.Next() {
 		var i Profile
 		if err := rows.Scan(
