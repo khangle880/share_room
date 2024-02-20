@@ -41,12 +41,12 @@ func AuthMiddleware(repo *pg.RepoSvc) gin.HandlerFunc {
 			return
 		}
 		ctx := context.WithValue(c.Request.Context(), contextKey("auth"), &user)
-		// profile, err := repo.GetProfileByUserID(c.Request.Context(), customClaims.ID)
-		// if err != nil {
-		// 	c.Next()
-		// 	return
-		// }
-		// ctx = context.WithValue(ctx, contextKey("profile"), profile)
+		profile, err := repo.GetProfileByUserID(c.Request.Context(), customClaims.ID)
+		if err != nil {
+			c.Next()
+			return
+		}
+		ctx = context.WithValue(ctx, contextKey("profile"), &profile)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}

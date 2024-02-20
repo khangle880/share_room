@@ -92,3 +92,19 @@
 {"level":"info","client_id":"::1","method":"POST","status_code":403,"body_size":251,"path":"/query","latency":"154.738ms","time":"2024-02-06T08:40:32+07:00"}
 {"level":"error","git_revision":"","go_version":"go1.21.3","error":"token signature is invalid: signature is invalid","time":"2024-02-06T08:42:15+07:00","caller":"/Users/khangle/Documents/GoDev/share_room/middleware/auth_middleware.go:27","message":"invalid token"}
 {"level":"info","client_id":"::1","method":"POST","status_code":403,"body_size":251,"path":"/query","latency":"124.426709ms","time":"2024-02-06T08:42:15+07:00"}
+{"level":"info","client_id":"::1","method":"GET","status_code":200,"body_size":1787,"path":"/","latency":"1.91875ms","time":"2024-02-07T08:30:35+07:00"}
+{"level":"error","git_revision":"","go_version":"go1.21.3","error":"token signature is invalid: signature is invalid","time":"2024-02-07T08:30:36+07:00","caller":"/Users/khangle/Documents/GoDev/share_room/middleware/auth_middleware.go:27","message":"invalid token"}
+{"level":"info","client_id":"::1","method":"POST","status_code":403,"body_size":25,"path":"/query","latency":"370.375µs","time":"2024-02-07T08:30:36+07:00"}
+{"level":"error","git_revision":"","go_version":"go1.21.3","error":"token signature is invalid: signature is invalid","time":"2024-02-07T08:30:36+07:00","caller":"/Users/khangle/Documents/GoDev/share_room/middleware/auth_middleware.go:27","message":"invalid token"}
+{"level":"info","client_id":"::1","method":"POST","status_code":403,"body_size":25,"path":"/query","latency":"154.166µs","time":"2024-02-07T08:30:36+07:00"}
+{"level":"info","client_id":"::1","method":"GET","status_code":404,"body_size":-1,"path":"/favicon.ico","latency":"2.667µs","time":"2024-02-07T08:30:37+07:00"}
+{"level":"error","git_revision":"","go_version":"go1.21.3","error":"token signature is invalid: signature is invalid","time":"2024-02-07T08:30:41+07:00","caller":"/Users/khangle/Documents/GoDev/share_room/middleware/auth_middleware.go:27","message":"invalid token"}
+{"level":"info","client_id":"::1","method":"POST","status_code":403,"body_size":25,"path":"/query","latency":"135.958µs","time":"2024-02-07T08:30:41+07:00"}
+{"level":"error","git_revision":"","go_version":"go1.21.3","error":"token signature is invalid: signature is invalid","time":"2024-02-07T08:30:45+07:00","caller":"/Users/khangle/Documents/GoDev/share_room/middleware/auth_middleware.go:27","message":"invalid token"}
+{"level":"info","client_id":"::1","method":"POST","status_code":403,"body_size":25,"path":"/query","latency":"211µs","time":"2024-02-07T08:30:45+07:00"}
+{"level":"info","client_id":"::1","method":"POST","status_code":200,"body_size":224,"path":"/query","latency":"161.4035ms","time":"2024-02-07T08:30:51+07:00"}
+{"level":"info","client_id":"::1","method":"POST","status_code":200,"body_size":85,"path":"/query","latency":"13.004166ms","time":"2024-02-07T08:31:17+07:00"}
+{"level":"info","client_id":"::1","method":"POST","status_code":200,"body_size":86,"path":"/query","latency":"32.994417ms","time":"2024-02-07T08:33:43+07:00"}
+{"level":"info","client_id":"::1","method":"POST","status_code":200,"body_size":86,"path":"/query","latency":"20.723667ms","time":"2024-02-07T08:34:17+07:00"}
+{"level":"info","client_id":"::1","method":"POST","status_code":200,"body_size":224,"path":"/query","latency":"107.106958ms","time":"2024-02-07T08:34:20+07:00"}
+{"level":"info","client_id":"::1","method":"POST","status_code":200,"body_size":86,"path":"/query","latency":"1.462583ms","time":"2024-02-07T08:34:32+07:00"}

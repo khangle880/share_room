@@ -15,7 +15,7 @@ import (
 const createProfile = `-- name: CreateProfile :one
 INSERT INTO profiles (role, firstname, lastname, dob, bio, avatar)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, created_at, updated_at, deleted_at, role, firstname, lastname, dob, bio, avatar
+RETURNING id, created_at, updated_at, role, firstname, lastname, dob, bio, avatar
 `
 
 type CreateProfileParams struct {
@@ -41,7 +41,6 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.ID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 		&i.Role,
 		&i.Firstname,
 		&i.Lastname,
@@ -53,7 +52,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 }
 
 const getProfileByUserID = `-- name: GetProfileByUserID :one
-SELECT p.id, p.created_at, p.updated_at, p.deleted_at, p.role, p.firstname, p.lastname, p.dob, p.bio, p.avatar
+SELECT p.id, p.created_at, p.updated_at, p.role, p.firstname, p.lastname, p.dob, p.bio, p.avatar
 FROM profiles p
 JOIN user_profiles up ON p.id = up.profile_id
 JOIN users u ON up.user_id = u.id
@@ -67,7 +66,6 @@ func (q *Queries) GetProfileByUserID(ctx context.Context, id uuid.UUID) (Profile
 		&i.ID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 		&i.Role,
 		&i.Firstname,
 		&i.Lastname,
@@ -79,11 +77,10 @@ func (q *Queries) GetProfileByUserID(ctx context.Context, id uuid.UUID) (Profile
 }
 
 const getProfilesByUserIDs = `-- name: GetProfilesByUserIDs :many
-SELECT p.id, p.created_at, p.updated_at, p.deleted_at, p.role, p.firstname, p.lastname, p.dob, p.bio, p.avatar
+SELECT p.id, p.created_at, p.updated_at, p.role, p.firstname, p.lastname, p.dob, p.bio, p.avatar
 FROM profiles p
-JOIN user_profiles up ON p.id = up.profile_id
-JOIN users u ON up.user_id = u.id
-WHERE u.id = ANY($1::UUID[])
+INNER JOIN user_profiles up ON p.id = up.profile_id
+WHERE up.user_id = ANY($1::UUID[])
 `
 
 func (q *Queries) GetProfilesByUserIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Profile, error) {
@@ -99,7 +96,6 @@ func (q *Queries) GetProfilesByUserIDs(ctx context.Context, dollar_1 []uuid.UUID
 			&i.ID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DeletedAt,
 			&i.Role,
 			&i.Firstname,
 			&i.Lastname,
@@ -115,4 +111,52 @@ func (q *Queries) GetProfilesByUserIDs(ctx context.Context, dollar_1 []uuid.UUID
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateProfile = `-- name: UpdateProfile :one
+UPDATE profiles
+SET updated_at = NOW(),
+    role = COALESCE($2, role),
+    firstname = COALESCE($3, firstname),
+    lastname = COALESCE($4, lastname),
+    dob = COALESCE($5, dob),
+    bio = COALESCE($6, bio),
+    avatar = COALESCE($7, avatar)
+WHERE id = $1
+RETURNING id, created_at, updated_at, role, firstname, lastname, dob, bio, avatar
+`
+
+type UpdateProfileParams struct {
+	ID        uuid.UUID    `json:"id"`
+	Role      NullUserRole `json:"role"`
+	Firstname *string      `json:"firstname"`
+	Lastname  *string      `json:"lastname"`
+	Dob       *time.Time   `json:"dob"`
+	Bio       *string      `json:"bio"`
+	Avatar    *string      `json:"avatar"`
+}
+
+func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
+	row := q.db.QueryRow(ctx, updateProfile,
+		arg.ID,
+		arg.Role,
+		arg.Firstname,
+		arg.Lastname,
+		arg.Dob,
+		arg.Bio,
+		arg.Avatar,
+	)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Role,
+		&i.Firstname,
+		&i.Lastname,
+		&i.Dob,
+		&i.Bio,
+		&i.Avatar,
+	)
+	return i, err
 }

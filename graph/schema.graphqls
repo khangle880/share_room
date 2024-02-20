@@ -5,21 +5,48 @@
 directive @auth on FIELD_DEFINITION
 directive @hasRole(role: UserRole!) on FIELD_DEFINITION
 
-enum UserRole {admin user}
-enum RoomRole {admin member}
-enum TaskRole {assignee reviewer creator}
-enum TransRole {creator partner}
-enum BudgetRole {owner contributor}
-enum PeriodType {weekly monthly yearly}
-enum StatusType {pending in_progress completed}
-enum CategoryType {expense income}
+enum UserRole {
+  admin
+  user
+}
+enum RoomRole {
+  admin
+  member
+}
+enum TaskRole {
+  assignee
+  reviewer
+  creator
+}
+enum TransRole {
+  creator
+  partner
+}
+enum BudgetRole {
+  owner
+  contributor
+}
+enum PeriodType {
+  weekly
+  monthly
+  yearly
+}
+enum StatusType {
+  pending
+  in_progress
+  completed
+}
+enum CategoryType {
+  expense
+  income
+}
 
 scalar Time
 scalar UUID
 
-type Token{
-  accessToken: String,
-  refreshToken: String,
+type Token {
+  accessToken: String
+  refreshToken: String
   user: User
 }
 
@@ -30,7 +57,6 @@ type Budget {
   id: UUID!
   createdAt: Time!
   updatedAt: Time!
-  deletedAt: Time
   name: String!
   description: String
   amount: Float!
@@ -49,11 +75,10 @@ type Room {
   id: UUID!
   createdAt: Time!
   updatedAt: Time!
-  deletedAt: Time
   name: String!
   address: String
   admin: User!
-  member: [User!]!
+  members: [User!]!
   avatar: String
   background: String
 }
@@ -64,7 +89,6 @@ type Transaction {
   id: UUID!
   createdAt: Time!
   updatedAt: Time!
-  deletedAt: Time
   category: Category!
   budget: Budget!
   event: Event
@@ -82,7 +106,6 @@ type Event {
   id: UUID!
   createdAt: Time!
   updatedAt: Time!
-  deletedAt: Time
   name: String!
   description: String!
   icon: Icon!
@@ -95,7 +118,6 @@ type Category {
   id: UUID!
   createdAt: Time!
   updatedAt: Time!
-  deletedAt: Time
   name: String!
   type: CategoryType!
   icon: Icon!
@@ -108,7 +130,6 @@ type Icon {
   id: UUID!
   createdAt: Time!
   updatedAt: Time!
-  deletedAt: Time
   name: String!
   url: String!
   type: String
@@ -136,7 +157,6 @@ type Profile {
   id: UUID!
   createdAt: Time!
   updatedAt: Time!
-  deletedAt: Time
   role: UserRole!
   firstname: String
   lastname: String
@@ -157,25 +177,28 @@ Query
 """
 type Query {
   profile: User!
-  users(role: UserRole!): [User!]! @auth
-  categories(
-    filter: BudgetFilter
-    limit: Int = 10
-    offset: Int = 0
-  ): [Category!]!
-  budgets: [Budget!]! @auth
+  # users(role: UserRole!): [User!]! @auth
+  categories(limit: Int = 10, offset: Int = 0): [Category!]!
+  budgets(limit: Int = 10, offset: Int = 0): [Budget!]! @auth
 }
 
 type Mutation {
   login(email: String!, password: String!): Token!
   register(input: CreateUserInput!): Token!
-  createIcon(input: CreateIconInput!): Icon!
-  createEvent(input: CreateEventInput!): Event!
-  createCategory(input: CreateCategoryInput!): Category!
+  updateAccount(input: UpdateAccountInput!): Token! @auth
+  updateProfile(input: UpdateProfileInput!): Profile! @auth
+  deleteAccount: Boolean! @auth
+  createIcon(input: CreateIconInput!): Icon! @hasRole(role: ADMIN)
+  createEvent(input: CreateEventInput!): Event! @hasRole(role: ADMIN)
+  createCategory(input: CreateCategoryInput!): Category! @hasRole(role: ADMIN)
+  createRoom(input: CreateRoomInput!): Room!
+  updateRoom(id: UUID!, input: UpdateRoomInput!): Room!
+  createTransaction(input: CreateTranInput!): Transaction!
+  updateTransaction(id: UUID!, input: UpdateTranInput!): Transaction!
+  deleteTransaction(id: UUID!): Boolean!
   createBudget(input: CreateBudgetInput!): Budget! @auth
-  createTransaction(input: CreateTransInput!): Transaction!
   updateBudget(id: UUID!, input: UpdateBudgetInput!): Budget!
-  deleteBudget(id: UUID!): Boolean! 
+  deleteBudget(id: UUID!): Boolean!
   deleteUser(id: UUID!): Boolean! @hasRole(role: ADMIN)
 }
 
@@ -194,14 +217,18 @@ input CreateUserInput {
   avatar: String
 }
 
-input UpdateUserInput {
+input UpdateAccountInput {
   username: String
   password: String
-  email: String!
+  email: String
   phone: String
+}
+
+input UpdateProfileInput {
   firstname: String
   lastname: String
-  role: UserRole = USER
+  role: UserRole
+  dob: Time
   bio: String
   avatar: String
 }
@@ -225,13 +252,21 @@ input CreateEventInput {
   background: String
 }
 
+input BudgetMemberInput {
+  id: UUID!
+  role: BudgetRole!
+}
+
 input CreateBudgetInput {
   name: String!
   description: String
   Amount: Float!
   iconID: UUID!
   roomID: UUID
-  memberIDs: [UUID!]
+  period: PeriodType
+  startDate: Time!
+  end_date: Time
+  memberIDs: [BudgetMemberInput!]
 }
 
 input UpdateBudgetInput {
@@ -240,16 +275,50 @@ input UpdateBudgetInput {
   Amount: Float
   iconID: UUID
   roomID: UUID
-  memberIDs: [UUID!]
+  period: PeriodType
+  startDate: Time
+  end_date: Time
+  memberIDs: [BudgetMemberInput!]
 }
 
-input CreateTransInput {
-  CategoryID: UUID!
+input CreateTranInput {
+  categoryID: UUID!
   description: String
-  time: Time!
-  budgetID: UUID!
+  excTime: Time!
+  budgetID: UUID
+  Amount: Float!
   creatorIDs: [UUID!]!
   partnerIDs: [UUID!]
   eventID: UUID
   images: [String!]
+}
+
+input UpdateTranInput {
+  categoryID: UUID
+  description: String
+  excTime: Time
+  budgetID: UUID
+  Amount: Float
+  creatorIDs: [UUID!]
+  partnerIDs: [UUID!]
+  eventID: UUID
+  images: [String!]
+}
+
+input CreateRoomInput {
+  name: String!
+  address: String!
+  adminID: UUID!
+  members: [UUID!]!
+  avatar: String
+  background: String
+}
+
+input UpdateRoomInput {
+  name: String
+  address: String
+  adminID: UUID
+  members: [UUID!]
+  avatar: String
+  background: String
 }

@@ -21,9 +21,17 @@ func ToStrings[T fmt.Stringer](list []T) []string {
 }
 
 func ConvertList[T, V any](inputList []T, converter func(T) V) []V {
-    var outputList []V
-    for _, item := range inputList {
-        outputList = append(outputList, converter(item))
-    }
-    return outputList
+	var outputList []V
+	for _, item := range inputList {
+		outputList = append(outputList, converter(item))
+	}
+	return outputList
+}
+
+func ToList[K comparable, V any](m map[K]V) []V {
+  list := make([]V, 0, len(m))
+  for _, v := range m {
+    list = append(list, v)
+  }
+  return list
 }

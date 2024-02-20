@@ -352,11 +352,22 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type Account struct {
+	ID             uuid.UUID  `json:"id"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at"`
+	LastJoinAt     time.Time  `json:"last_join_at"`
+	Username       string     `json:"username"`
+	HashedPassword string     `json:"hashed_password"`
+	Email          *string    `json:"email"`
+	Phone          *string    `json:"phone"`
+}
+
 type Budget struct {
 	ID          uuid.UUID      `json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   *time.Time     `json:"deleted_at"`
 	Name        string         `json:"name"`
 	Description *string        `json:"description"`
 	Amount      pgtype.Numeric `json:"amount"`
@@ -378,7 +389,6 @@ type Category struct {
 	ID        uuid.UUID     `json:"id"`
 	CreatedAt time.Time     `json:"created_at"`
 	UpdatedAt time.Time     `json:"updated_at"`
-	DeletedAt *time.Time    `json:"deleted_at"`
 	Name      string        `json:"name"`
 	Type      CategoryType  `json:"type"`
 	IconID    uuid.UUID     `json:"icon_id"`
@@ -396,37 +406,34 @@ type Event struct {
 }
 
 type Icon struct {
-	ID        uuid.UUID  `json:"id"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `json:"deleted_at"`
-	Name      string     `json:"name"`
-	Url       string     `json:"url"`
-	Type      *string    `json:"type"`
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Name      string    `json:"name"`
+	Url       string    `json:"url"`
+	Type      *string   `json:"type"`
 }
 
 type Profile struct {
-	ID        uuid.UUID  `json:"id"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `json:"deleted_at"`
-	Role      UserRole   `json:"role"`
-	Firstname *string    `json:"firstname"`
-	Lastname  *string    `json:"lastname"`
-	Dob       time.Time  `json:"dob"`
-	Bio       *string    `json:"bio"`
-	Avatar    *string    `json:"avatar"`
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Role      UserRole  `json:"role"`
+	Firstname *string   `json:"firstname"`
+	Lastname  *string   `json:"lastname"`
+	Dob       time.Time `json:"dob"`
+	Bio       *string   `json:"bio"`
+	Avatar    *string   `json:"avatar"`
 }
 
 type Room struct {
-	ID         uuid.UUID  `json:"id"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
-	DeletedAt  *time.Time `json:"deleted_at"`
-	Name       string     `json:"name"`
-	Address    *string    `json:"address"`
-	Avatar     *string    `json:"avatar"`
-	Background *string    `json:"background"`
+	ID         uuid.UUID `json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	Name       string    `json:"name"`
+	Address    *string   `json:"address"`
+	Avatar     *string   `json:"avatar"`
+	Background *string   `json:"background"`
 }
 
 type RoomMember struct {
@@ -440,7 +447,6 @@ type Transaction struct {
 	ID          uuid.UUID      `json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   *time.Time     `json:"deleted_at"`
 	CategoryID  uuid.UUID      `json:"category_id"`
 	BudgetID    uuid.NullUUID  `json:"budget_id"`
 	EventID     uuid.NullUUID  `json:"event_id"`

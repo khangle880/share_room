@@ -7,12 +7,14 @@ package pg
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const createIcon = `-- name: CreateIcon :one
 INSERT INTO icons (name, url, type)
 VALUES ($1, $2, $3)
-RETURNING id, created_at, updated_at, deleted_at, name, url, type
+RETURNING id, created_at, updated_at, name, url, type
 `
 
 type CreateIconParams struct {
@@ -28,10 +30,58 @@ func (q *Queries) CreateIcon(ctx context.Context, arg CreateIconParams) (Icon, e
 		&i.ID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 		&i.Name,
 		&i.Url,
 		&i.Type,
 	)
 	return i, err
+}
+
+const getIconByID = `-- name: GetIconByID :one
+SELECT id, created_at, updated_at, name, url, type FROM icons WHERE id = $1
+`
+
+func (q *Queries) GetIconByID(ctx context.Context, id uuid.UUID) (Icon, error) {
+	row := q.db.QueryRow(ctx, getIconByID, id)
+	var i Icon
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Name,
+		&i.Url,
+		&i.Type,
+	)
+	return i, err
+}
+
+const getIconsByIDs = `-- name: GetIconsByIDs :many
+SELECT id, created_at, updated_at, name, url, type FROM icons WHERE id = ANY($1::UUID[])
+`
+
+func (q *Queries) GetIconsByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Icon, error) {
+	rows, err := q.db.Query(ctx, getIconsByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Icon{}
+	for rows.Next() {
+		var i Icon
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Name,
+			&i.Url,
+			&i.Type,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

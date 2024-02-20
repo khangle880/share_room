@@ -13,6 +13,17 @@ WHERE u.id = $1;
 -- name: GetProfilesByUserIDs :many
 SELECT p.*
 FROM profiles p
-JOIN user_profiles up ON p.id = up.profile_id
-JOIN users u ON up.user_id = u.id
-WHERE u.id = ANY($1::UUID[]);
+INNER JOIN user_profiles up ON p.id = up.profile_id
+WHERE up.user_id = ANY($1::UUID[]);
+
+-- name: UpdateProfile :one
+UPDATE profiles
+SET updated_at = NOW(),
+    role = COALESCE(sqlc.narg(role), role),
+    firstname = COALESCE(sqlc.narg(firstname), firstname),
+    lastname = COALESCE(sqlc.narg(lastname), lastname),
+    dob = COALESCE(sqlc.narg(dob), dob),
+    bio = COALESCE(sqlc.narg(bio), bio),
+    avatar = COALESCE(sqlc.narg(avatar), avatar)
+WHERE id = $1
+RETURNING *;

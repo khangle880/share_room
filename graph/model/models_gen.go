@@ -16,12 +16,15 @@ type BudgetFilter struct {
 }
 
 type CreateBudgetInput struct {
-	Name        string      `json:"name"`
-	Description *string     `json:"description,omitempty"`
-	Amount      float64     `json:"Amount"`
-	IconID      uuid.UUID   `json:"iconID"`
-	RoomID      *uuid.UUID  `json:"roomID,omitempty"`
-	MemberIDs   []uuid.UUID `json:"memberIDs,omitempty"`
+	Name        string                 `json:"name"`
+	Description *string                `json:"description,omitempty"`
+	Amount      float64                `json:"Amount"`
+	IconID      uuid.UUID              `json:"iconID"`
+	RoomID      *uuid.UUID             `json:"roomID,omitempty"`
+	Period      *pg.PeriodType         `json:"period,omitempty"`
+	StartDate   time.Time              `json:"startDate"`
+	EndDate     *time.Time             `json:"end_date,omitempty"`
+	MemberIDs   []pg.BudgetMemberInput `json:"memberIDs,omitempty"`
 }
 
 type CreateCategoryInput struct {
@@ -43,11 +46,21 @@ type CreateIconInput struct {
 	URL  string `json:"url"`
 }
 
-type CreateTransInput struct {
-	CategoryID  uuid.UUID   `json:"CategoryID"`
+type CreateRoomInput struct {
+	Name       string      `json:"name"`
+	Address    string      `json:"address"`
+	AdminID    uuid.UUID   `json:"adminID"`
+	Members    []uuid.UUID `json:"members"`
+	Avatar     *string     `json:"avatar,omitempty"`
+	Background *string     `json:"background,omitempty"`
+}
+
+type CreateTranInput struct {
+	CategoryID  uuid.UUID   `json:"categoryID"`
 	Description *string     `json:"description,omitempty"`
-	Time        time.Time   `json:"time"`
-	BudgetID    uuid.UUID   `json:"budgetID"`
+	ExcTime     time.Time   `json:"excTime"`
+	BudgetID    *uuid.UUID  `json:"budgetID,omitempty"`
+	Amount      float64     `json:"Amount"`
 	CreatorIDs  []uuid.UUID `json:"creatorIDs"`
 	PartnerIDs  []uuid.UUID `json:"partnerIDs,omitempty"`
 	EventID     *uuid.UUID  `json:"eventID,omitempty"`
@@ -73,23 +86,51 @@ type Token struct {
 	User         *pg.User `json:"user,omitempty"`
 }
 
-type UpdateBudgetInput struct {
-	Name        *string     `json:"name,omitempty"`
-	Description *string     `json:"description,omitempty"`
-	Amount      *float64    `json:"Amount,omitempty"`
-	IconID      *uuid.UUID  `json:"iconID,omitempty"`
-	RoomID      *uuid.UUID  `json:"roomID,omitempty"`
-	MemberIDs   []uuid.UUID `json:"memberIDs,omitempty"`
+type UpdateAccountInput struct {
+	Username *string `json:"username,omitempty"`
+	Password *string `json:"password,omitempty"`
+	Email    *string `json:"email,omitempty"`
+	Phone    *string `json:"phone,omitempty"`
 }
 
-type UpdateUserInput struct {
-	Username  *string      `json:"username,omitempty"`
-	Password  *string      `json:"password,omitempty"`
-	Email     string       `json:"email"`
-	Phone     *string      `json:"phone,omitempty"`
+type UpdateBudgetInput struct {
+	Name        *string                `json:"name,omitempty"`
+	Description *string                `json:"description,omitempty"`
+	Amount      *float64               `json:"Amount,omitempty"`
+	IconID      *uuid.UUID             `json:"iconID,omitempty"`
+	RoomID      *uuid.UUID             `json:"roomID,omitempty"`
+	Period      *pg.PeriodType         `json:"period,omitempty"`
+	StartDate   *time.Time             `json:"startDate,omitempty"`
+	EndDate     *time.Time             `json:"end_date,omitempty"`
+	MemberIDs   []pg.BudgetMemberInput `json:"memberIDs,omitempty"`
+}
+
+type UpdateProfileInput struct {
 	Firstname *string      `json:"firstname,omitempty"`
 	Lastname  *string      `json:"lastname,omitempty"`
 	Role      *pg.UserRole `json:"role,omitempty"`
+	Dob       *time.Time   `json:"dob,omitempty"`
 	Bio       *string      `json:"bio,omitempty"`
 	Avatar    *string      `json:"avatar,omitempty"`
+}
+
+type UpdateRoomInput struct {
+	Name       *string     `json:"name,omitempty"`
+	Address    *string     `json:"address,omitempty"`
+	AdminID    *uuid.UUID  `json:"adminID,omitempty"`
+	Members    []uuid.UUID `json:"members,omitempty"`
+	Avatar     *string     `json:"avatar,omitempty"`
+	Background *string     `json:"background,omitempty"`
+}
+
+type UpdateTranInput struct {
+	CategoryID  *uuid.UUID  `json:"categoryID,omitempty"`
+	Description *string     `json:"description,omitempty"`
+	ExcTime     *time.Time  `json:"excTime,omitempty"`
+	BudgetID    *uuid.UUID  `json:"budgetID,omitempty"`
+	Amount      *float64    `json:"Amount,omitempty"`
+	CreatorIDs  []uuid.UUID `json:"creatorIDs,omitempty"`
+	PartnerIDs  []uuid.UUID `json:"partnerIDs,omitempty"`
+	EventID     *uuid.UUID  `json:"eventID,omitempty"`
+	Images      []string    `json:"images,omitempty"`
 }

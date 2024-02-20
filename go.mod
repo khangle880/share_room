@@ -9,6 +9,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v5 v5.5.3
+	github.com/shopspring/decimal v1.3.1
 	github.com/vektah/gqlparser/v2 v2.5.10
 	golang.org/x/crypto v0.17.0
 )
@@ -53,7 +54,7 @@ require (
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/mitchellh/mapstructure v1.5.0
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/rs/zerolog v1.31.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sosodev/duration v1.1.0 // indirect

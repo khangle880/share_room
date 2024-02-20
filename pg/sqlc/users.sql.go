@@ -49,8 +49,17 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteUser = `-- name: DeleteUser :exec
+UPDATE users SET deleted_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
+	return err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE email = $1
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE email = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email *string) (User, error) {
@@ -71,7 +80,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email *string) (User, erro
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = $1
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -92,7 +101,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE username = $1
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE username = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -113,7 +122,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const getUsersByIDs = `-- name: GetUsersByIDs :many
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = ANY($1::UUID[])
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = ANY($1::UUID[]) AND deleted_at IS NULL
 `
 
 func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]User, error) {
@@ -144,4 +153,49 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Us
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateUser = `-- name: UpdateUser :one
+UPDATE users
+SET updated_at = NOW(),
+    last_join_at = COALESCE($2, last_join_at),
+    username = COALESCE($3, username),
+    hashed_password = COALESCE($4, hashed_password),
+    email = COALESCE($5, email),
+    phone = COALESCE($6, phone)
+WHERE id = $1 AND deleted_at IS NULL 
+RETURNING id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone
+`
+
+type UpdateUserParams struct {
+	ID             uuid.UUID  `json:"id"`
+	LastJoinAt     *time.Time `json:"last_join_at"`
+	Username       *string    `json:"username"`
+	HashedPassword *string    `json:"hashed_password"`
+	Email          *string    `json:"email"`
+	Phone          *string    `json:"phone"`
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUser,
+		arg.ID,
+		arg.LastJoinAt,
+		arg.Username,
+		arg.HashedPassword,
+		arg.Email,
+		arg.Phone,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.LastJoinAt,
+		&i.Username,
+		&i.HashedPassword,
+		&i.Email,
+		&i.Phone,
+	)
+	return i, err
 }

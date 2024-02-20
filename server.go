@@ -15,7 +15,6 @@ import (
 	pg "github.com/khangle880/share_room/pg/sqlc"
 	"github.com/khangle880/share_room/utils"
 	"github.com/rs/zerolog"
-
 	customMiddlerware "github.com/khangle880/share_room/middleware"
 )
 
@@ -93,7 +92,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer conn.Close()
-
 	repo := pg.NewRepository(conn)
 	dl := dataloaders.NewRetriever()
 
