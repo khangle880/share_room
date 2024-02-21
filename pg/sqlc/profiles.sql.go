@@ -51,6 +51,21 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 	return i, err
 }
 
+const createUserProfile = `-- name: CreateUserProfile :exec
+INSERT INTO user_profiles (user_id, profile_id) 
+VALUES ($1, $2)
+`
+
+type CreateUserProfileParams struct {
+	UserID    uuid.UUID `json:"user_id"`
+	ProfileID uuid.UUID `json:"profile_id"`
+}
+
+func (q *Queries) CreateUserProfile(ctx context.Context, arg CreateUserProfileParams) error {
+	_, err := q.db.Exec(ctx, createUserProfile, arg.UserID, arg.ProfileID)
+	return err
+}
+
 const getProfileByUserID = `-- name: GetProfileByUserID :one
 SELECT p.id, p.created_at, p.updated_at, p.role, p.firstname, p.lastname, p.dob, p.bio, p.avatar
 FROM profiles p

@@ -167,9 +167,9 @@ type Profile {
 """
 Query Input
 """
-input BudgetFilter {
+input CategoryFilter {
   name: String
-  description: String
+  type: CategoryType
 }
 
 """
@@ -178,7 +178,7 @@ Query
 type Query {
   profile: User!
   # users(role: UserRole!): [User!]! @auth
-  categories(limit: Int = 10, offset: Int = 0): [Category!]!
+  categories(filter: CategoryFilter, limit: Int = 10, offset: Int = 0): [Category!]!
   budgets(limit: Int = 10, offset: Int = 0): [Budget!]! @auth
 }
 
@@ -188,9 +188,9 @@ type Mutation {
   updateAccount(input: UpdateAccountInput!): Token! @auth
   updateProfile(input: UpdateProfileInput!): Profile! @auth
   deleteAccount: Boolean! @auth
-  createIcon(input: CreateIconInput!): Icon! @hasRole(role: ADMIN)
-  createEvent(input: CreateEventInput!): Event! @hasRole(role: ADMIN)
-  createCategory(input: CreateCategoryInput!): Category! @hasRole(role: ADMIN)
+  createIcon(input: CreateIconInput!): Icon! @hasRole(role: admin)
+  createEvent(input: CreateEventInput!): Event! @hasRole(role: admin)
+  createCategory(input: CreateCategoryInput!): Category! @hasRole(role: admin)
   createRoom(input: CreateRoomInput!): Room!
   updateRoom(id: UUID!, input: UpdateRoomInput!): Room!
   createTransaction(input: CreateTranInput!): Transaction!

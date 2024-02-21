@@ -46,17 +46,26 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 
 const getCategories = `-- name: GetCategories :many
 SELECT id, created_at, updated_at, name, type, icon_id, parent_id FROM categories
+WHERE (name ILIKE '%' || $3 || '%' OR $3 IS NULL) 
+    AND (type = $4 OR $4 IS NULL) 
 OFFSET $1
 LIMIT $2
 `
 
 type GetCategoriesParams struct {
-	Offset int32 `json:"offset"`
-	Limit  int32 `json:"limit"`
+	Offset int32            `json:"offset"`
+	Limit  int32            `json:"limit"`
+	Name   *string          `json:"name"`
+	Type   NullCategoryType `json:"type"`
 }
 
 func (q *Queries) GetCategories(ctx context.Context, arg GetCategoriesParams) ([]Category, error) {
-	rows, err := q.db.Query(ctx, getCategories, arg.Offset, arg.Limit)
+	rows, err := q.db.Query(ctx, getCategories,
+		arg.Offset,
+		arg.Limit,
+		arg.Name,
+		arg.Type,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -453,7 +453,7 @@ func (r *queryResolver) Profile(ctx context.Context) (*pg.User, error) {
 }
 
 // Categories is the resolver for the categories field.
-func (r *queryResolver) Categories(ctx context.Context, limit *int, offset *int) ([]pg.Category, error) {
+func (r *queryResolver) Categories(ctx context.Context, filter *model.CategoryFilter, limit *int, offset *int) ([]pg.Category, error) {
 	_offset := BaseOffset
 	if offset != nil {
 		_offset = int32(*offset)
@@ -463,9 +463,16 @@ func (r *queryResolver) Categories(ctx context.Context, limit *int, offset *int)
 		_limit = int32(*limit)
 	}
 
+	_type := pg.NullCategoryType{}
+	if filter.Type != nil {
+		_type.CategoryType = *filter.Type
+		_type.Valid = true
+	}
 	categories, err := r.Repository.GetCategories(ctx, pg.GetCategoriesParams{
 		Offset: _offset,
 		Limit:  _limit,
+		Name:   filter.Name,
+		Type:   _type,
 	})
 	if err != nil {
 		utils.Log.Err(err).Send()

@@ -10,9 +10,9 @@ import (
 )
 
 // Query Input
-type BudgetFilter struct {
-	Name        *string `json:"name,omitempty"`
-	Description *string `json:"description,omitempty"`
+type CategoryFilter struct {
+	Name *string          `json:"name,omitempty"`
+	Type *pg.CategoryType `json:"type,omitempty"`
 }
 
 type CreateBudgetInput struct {

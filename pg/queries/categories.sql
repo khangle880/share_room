@@ -11,6 +11,8 @@ SELECT * FROM categories WHERE id = ANY($1::UUID[]);
 
 -- name: GetCategories :many
 SELECT * FROM categories
+WHERE (name ILIKE '%' || sqlc.narg(name) || '%' OR sqlc.narg(name) IS NULL) 
+    AND (type = sqlc.narg(type) OR sqlc.narg(type) IS NULL) 
 OFFSET $1
 LIMIT $2;
 

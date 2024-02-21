@@ -79,7 +79,6 @@ func (t *MyQueryTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data 
 
 func main() {
 	// dsn := os.Getenv("POSTGRESQL_URL")
-	utils.GetLog()
 	config, err := pgxpool.ParseConfig("postgres://postgres:admin@localhost:5432/share_room")
 	if err != nil {
 		utils.GetLog().Err(err).Msg("Unable to parse connString")

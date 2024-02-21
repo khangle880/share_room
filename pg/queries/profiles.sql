@@ -3,6 +3,10 @@ INSERT INTO profiles (role, firstname, lastname, dob, bio, avatar)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
+-- name: CreateUserProfile :exec
+INSERT INTO user_profiles (user_id, profile_id) 
+VALUES ($1, $2);
+
 -- name: GetProfileByUserID :one
 SELECT p.*
 FROM profiles p

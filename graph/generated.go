@@ -137,7 +137,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Budgets    func(childComplexity int, limit *int, offset *int) int
-		Categories func(childComplexity int, limit *int, offset *int) int
+		Categories func(childComplexity int, filter *model.CategoryFilter, limit *int, offset *int) int
 		Profile    func(childComplexity int) int
 	}
 
@@ -225,7 +225,7 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	Profile(ctx context.Context) (*pg.User, error)
-	Categories(ctx context.Context, limit *int, offset *int) ([]pg.Category, error)
+	Categories(ctx context.Context, filter *model.CategoryFilter, limit *int, offset *int) ([]pg.Category, error)
 	Budgets(ctx context.Context, limit *int, offset *int) ([]pg.Budget, error)
 }
 type RoomResolver interface {
@@ -779,7 +779,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Categories(childComplexity, args["limit"].(*int), args["offset"].(*int)), true
+		return e.complexity.Query.Categories(childComplexity, args["filter"].(*model.CategoryFilter), args["limit"].(*int), args["offset"].(*int)), true
 
 	case "Query.profile":
 		if e.complexity.Query.Profile == nil {
@@ -1034,8 +1034,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	rc := graphql.GetOperationContext(ctx)
 	ec := executionContext{rc, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputBudgetFilter,
 		ec.unmarshalInputBudgetMemberInput,
+		ec.unmarshalInputCategoryFilter,
 		ec.unmarshalInputCreateBudgetInput,
 		ec.unmarshalInputCreateCategoryInput,
 		ec.unmarshalInputCreateEventInput,
@@ -1497,24 +1497,33 @@ func (ec *executionContext) field_Query_budgets_args(ctx context.Context, rawArg
 func (ec *executionContext) field_Query_categories_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 *int
-	if tmp, ok := rawArgs["limit"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
-		arg0, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+	var arg0 *model.CategoryFilter
+	if tmp, ok := rawArgs["filter"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
+		arg0, err = ec.unmarshalOCategoryFilter2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋgraphᚋmodelᚐCategoryFilter(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["limit"] = arg0
+	args["filter"] = arg0
 	var arg1 *int
-	if tmp, ok := rawArgs["offset"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("offset"))
+	if tmp, ok := rawArgs["limit"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
 		arg1, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["offset"] = arg1
+	args["limit"] = arg1
+	var arg2 *int
+	if tmp, ok := rawArgs["offset"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("offset"))
+		arg2, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["offset"] = arg2
 	return args, nil
 }
 
@@ -3499,7 +3508,7 @@ func (ec *executionContext) _Mutation_createIcon(ctx context.Context, field grap
 			return ec.resolvers.Mutation().CreateIcon(rctx, fc.Args["input"].(model.CreateIconInput))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
-			role, err := ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, "ADMIN")
+			role, err := ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, "admin")
 			if err != nil {
 				return nil, err
 			}
@@ -3592,7 +3601,7 @@ func (ec *executionContext) _Mutation_createEvent(ctx context.Context, field gra
 			return ec.resolvers.Mutation().CreateEvent(rctx, fc.Args["input"].(model.CreateEventInput))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
-			role, err := ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, "ADMIN")
+			role, err := ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, "admin")
 			if err != nil {
 				return nil, err
 			}
@@ -3687,7 +3696,7 @@ func (ec *executionContext) _Mutation_createCategory(ctx context.Context, field 
 			return ec.resolvers.Mutation().CreateCategory(rctx, fc.Args["input"].(model.CreateCategoryInput))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
-			role, err := ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, "ADMIN")
+			role, err := ec.unmarshalNUserRole2githubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐUserRole(ctx, "admin")
 			if err != nil {
 				return nil, err
 			}
@@ -4912,7 +4921,7 @@ func (ec *executionContext) _Query_categories(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Categories(rctx, fc.Args["limit"].(*int), fc.Args["offset"].(*int))
+		return ec.resolvers.Query().Categories(rctx, fc.Args["filter"].(*model.CategoryFilter), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -8621,40 +8630,6 @@ func (ec *executionContext) fieldContext___Type_specifiedByURL(ctx context.Conte
 
 // region    **************************** input.gotpl *****************************
 
-func (ec *executionContext) unmarshalInputBudgetFilter(ctx context.Context, obj interface{}) (model.BudgetFilter, error) {
-	var it model.BudgetFilter
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"name", "description"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "name":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Name = data
-		case "description":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Description = data
-		}
-	}
-
-	return it, nil
-}
-
 func (ec *executionContext) unmarshalInputBudgetMemberInput(ctx context.Context, obj interface{}) (pg.BudgetMemberInput, error) {
 	var it pg.BudgetMemberInput
 	asMap := map[string]interface{}{}
@@ -8683,6 +8658,40 @@ func (ec *executionContext) unmarshalInputBudgetMemberInput(ctx context.Context,
 				return it, err
 			}
 			it.Role = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputCategoryFilter(ctx context.Context, obj interface{}) (model.CategoryFilter, error) {
+	var it model.CategoryFilter
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "type"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOCategoryType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryType(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
 		}
 	}
 
@@ -12078,6 +12087,31 @@ func (ec *executionContext) marshalOCategory2ᚖgithubᚗcomᚋkhangle880ᚋshar
 		return graphql.Null
 	}
 	return ec._Category(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOCategoryFilter2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋgraphᚋmodelᚐCategoryFilter(ctx context.Context, v interface{}) (*model.CategoryFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputCategoryFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOCategoryType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryType(ctx context.Context, v interface{}) (*pg.CategoryType, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := pg.CategoryType(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOCategoryType2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐCategoryType(ctx context.Context, sel ast.SelectionSet, v *pg.CategoryType) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalString(string(*v))
+	return res
 }
 
 func (ec *executionContext) marshalOEvent2ᚖgithubᚗcomᚋkhangle880ᚋshare_roomᚋpgᚋsqlcᚐEvent(ctx context.Context, sel ast.SelectionSet, v *pg.Event) graphql.Marshaler {

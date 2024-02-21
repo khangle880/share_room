@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE IF NOT EXISTS accounts (
+CREATE TABLE IF NOT EXISTS users (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -13,10 +13,10 @@ CREATE TABLE IF NOT EXISTS accounts (
     UNIQUE(username, email, phone, deleted_at)
 );
 
-CREATE VIEW users AS
-SELECT *
-FROM accounts
-WHERE deleted_at IS NULL;
+-- CREATE VIEW users AS
+-- SELECT *
+-- FROM accounts
+-- WHERE deleted_at IS NULL;
 
 -- +goose Down
 DROP TABLE users;

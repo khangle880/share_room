@@ -51,19 +51,20 @@ func (r *RepoSvc) CreateUser(ctx context.Context, userParams CreateUserParams, p
 			return err
 		}
 		utils.Log.Info().Msg(resUser.ID.String())
-		resProfile, err := r.CreateProfile(ctx, profileParams)
+		resProfile, err := q.CreateProfile(ctx, profileParams)
 		if err != nil {
 			return err
 		}
 		utils.Log.Info().Msg(resProfile.ID.String())
-		err = r.CreateUserProfile(ctx, CreateUserProfileParams{
+		err = q.CreateUserProfile(ctx, CreateUserProfileParams{
 			UserID:    resUser.ID,
 			ProfileID: resProfile.ID,
 		})
 		if err != nil {
 			return err
 		}
-		user = &resUser
+		a := User(resUser)
+		user = &a
 		return nil
 	})
 	return user, err

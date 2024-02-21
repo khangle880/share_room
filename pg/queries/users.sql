@@ -4,16 +4,16 @@ VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetUserByID :one
-SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL;
+SELECT * FROM users WHERE id = $1;
 
 -- name: GetUsersByIDs :many
-SELECT * FROM users WHERE id = ANY($1::UUID[]) AND deleted_at IS NULL;
+SELECT * FROM users WHERE id = ANY($1::UUID[]);
 
 -- name: GetUserByEmail :one
 SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL;
 
 -- name: GetUserByUsername :one
-SELECT * FROM users WHERE username = $1 AND deleted_at IS NULL;
+SELECT * FROM users WHERE username = $1;
 
 -- name: UpdateUser :one
 UPDATE users
@@ -23,7 +23,7 @@ SET updated_at = NOW(),
     hashed_password = COALESCE(sqlc.narg(hashed_password), hashed_password),
     email = COALESCE(sqlc.narg(email), email),
     phone = COALESCE(sqlc.narg(phone), phone)
-WHERE id = $1 AND deleted_at IS NULL 
+WHERE id = $1 
 RETURNING *;
 
 -- name: DeleteUser :exec

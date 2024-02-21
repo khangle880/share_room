@@ -352,18 +352,6 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
-type Account struct {
-	ID             uuid.UUID  `json:"id"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at"`
-	LastJoinAt     time.Time  `json:"last_join_at"`
-	Username       string     `json:"username"`
-	HashedPassword string     `json:"hashed_password"`
-	Email          *string    `json:"email"`
-	Phone          *string    `json:"phone"`
-}
-
 type Budget struct {
 	ID          uuid.UUID      `json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`

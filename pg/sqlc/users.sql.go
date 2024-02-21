@@ -80,7 +80,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email *string) (User, erro
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = $1 AND deleted_at IS NULL
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -101,7 +101,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE username = $1 AND deleted_at IS NULL
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -122,7 +122,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const getUsersByIDs = `-- name: GetUsersByIDs :many
-SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = ANY($1::UUID[]) AND deleted_at IS NULL
+SELECT id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone FROM users WHERE id = ANY($1::UUID[])
 `
 
 func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]User, error) {
@@ -163,7 +163,7 @@ SET updated_at = NOW(),
     hashed_password = COALESCE($4, hashed_password),
     email = COALESCE($5, email),
     phone = COALESCE($6, phone)
-WHERE id = $1 AND deleted_at IS NULL 
+WHERE id = $1 
 RETURNING id, created_at, updated_at, deleted_at, last_join_at, username, hashed_password, email, phone
 `
 
