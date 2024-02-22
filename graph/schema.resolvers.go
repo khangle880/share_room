@@ -7,85 +7,94 @@ package graph
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/khangle880/share_room/graph/dataloader"
 	"github.com/khangle880/share_room/graph/model"
+	"github.com/khangle880/share_room/middleware"
+	pg "github.com/khangle880/share_room/pg/sqlc"
 	"github.com/khangle880/share_room/utils"
 )
 
-// Transactions is the resolver for the transactions field.
-func (r *budgetResolver) Transactions(ctx context.Context, obj *model.Budget) ([]*model.Transaction, error) {
-	transList := utils.Filter(r.transactions, func(trans *model.Transaction) bool {
-		return trans.BudgetId == obj.ID
-	})
-	return transList, nil
+// Amount is the resolver for the amount field.
+func (r *budgetResolver) Amount(ctx context.Context, obj *pg.Budget) (float64, error) {
+	return pg.NumbericToFloat64(obj.Amount)
 }
 
 // Icon is the resolver for the icon field.
-func (r *budgetResolver) Icon(ctx context.Context, obj *model.Budget) (*model.Icon, error) {
-	index := slices.IndexFunc(r.icons, func(e *model.Icon) bool { return e.ID == obj.IconId })
-	if index == -1 {
-		return nil, fmt.Errorf("not found budget's icon: %v", obj.IconId)
-	}
-	return r.icons[index], nil
-}
-
-// Members is the resolver for the members field.
-func (r *budgetResolver) Members(ctx context.Context, obj *model.Budget) ([]*model.User, error) {
-	var members []*model.User
-	members, _ = dataloader.GetUserLoader(ctx).LoadAll(utils.ToStrings(obj.MemberIds))
-	return members, nil
+func (r *budgetResolver) Icon(ctx context.Context, obj *pg.Budget) (*pg.Icon, error) {
+	return r.DataLoaders.Retrieve(ctx).Icon.Load(obj.IconID)
 }
 
 // Room is the resolver for the room field.
-func (r *budgetResolver) Room(ctx context.Context, obj *model.Budget) (*model.Room, error) {
-	panic(fmt.Errorf("not implemented: Room - room"))
+func (r *budgetResolver) Room(ctx context.Context, obj *pg.Budget) (*pg.Room, error) {
+	if !obj.RoomID.Valid {
+		return nil, nil
+	}
+	room, err := r.Repository.GetRoomByID(ctx, obj.RoomID.UUID)
+
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, ErrNotFound
+	}
+	return &room, nil
+}
+
+// Period is the resolver for the period field.
+func (r *budgetResolver) Period(ctx context.Context, obj *pg.Budget) (*pg.PeriodType, error) {
+	if !obj.Period.Valid {
+		return nil, nil
+	}
+
+	return &obj.Period.PeriodType, nil
+}
+
+// Transactions is the resolver for the transactions field.
+func (r *budgetResolver) Transactions(ctx context.Context, obj *pg.Budget) ([]pg.Transaction, error) {
+	return r.DataLoaders.Retrieve(ctx).TransByBudgetID.Load(obj.ID)
+}
+
+// Members is the resolver for the members field.
+func (r *budgetResolver) Members(ctx context.Context, obj *pg.Budget) ([]pg.User, error) {
+	return r.DataLoaders.Retrieve(ctx).MembersByBudgetID.Load(obj.ID)
 }
 
 // Icon is the resolver for the icon field.
-func (r *categoryResolver) Icon(ctx context.Context, obj *model.Category) (*model.Icon, error) {
-	index := slices.IndexFunc(r.icons, func(e *model.Icon) bool { return e.ID == obj.IconId })
-	if index == -1 {
-		return nil, fmt.Errorf("not found category's icon: %v", obj.IconId)
-	}
-	return r.icons[index], nil
+func (r *categoryResolver) Icon(ctx context.Context, obj *pg.Category) (*pg.Icon, error) {
+	return r.DataLoaders.Retrieve(ctx).Icon.Load(obj.IconID)
 }
 
 // Parent is the resolver for the parent field.
-func (r *categoryResolver) Parent(ctx context.Context, obj *model.Category) (*model.Category, error) {
-	if obj.ParentId == nil {
+func (r *categoryResolver) Parent(ctx context.Context, obj *pg.Category) (*pg.Category, error) {
+	if !obj.ParentID.Valid {
 		return nil, nil
 	}
-	parent, err := r.CategoriesRepo.GetCategoryByID(*obj.ParentId)
+	parent, err := r.Repository.GetCategoryByID(ctx, obj.ParentID.UUID)
+
 	if err != nil {
-		return nil, fmt.Errorf("not found category's parent: %v", *obj.ParentId)
+		utils.Log.Err(err).Send()
+		return nil, ErrNotFound
 	}
-	return parent, nil
+
+	return &parent, nil
 }
 
 // Icon is the resolver for the icon field.
-func (r *eventResolver) Icon(ctx context.Context, obj *model.Event) (*model.Icon, error) {
-	index := slices.IndexFunc(r.icons, func(e *model.Icon) bool { return e.ID == obj.IconId })
-	if index == -1 {
-		return nil, fmt.Errorf("not found event's icon: %v", obj.IconId)
-	}
-	return r.icons[index], nil
+func (r *eventResolver) Icon(ctx context.Context, obj *pg.Event) (*pg.Icon, error) {
+	return r.DataLoaders.Retrieve(ctx).Icon.Load(obj.IconID)
 }
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, email string, password string) (*model.Token, error) {
-	user, err := r.UsersRepo.GetUserByEmail(email)
+	user, err := r.Repository.GetUserByEmail(ctx, &email)
 	if err != nil {
-		return nil, errors.New("user not found")
+		utils.Log.Err(err).Send()
+		return nil, ErrNotFound
 	}
 	if err := utils.ComparePasswords(password, user.HashedPassword); err != nil {
-		return nil, err
+		utils.Log.Err(err).Send()
+		return nil, errors.New("user or password wrong")
 	}
 	token, err := utils.JwtGenerate(user.ID)
 	if err != nil {
@@ -93,7 +102,7 @@ func (r *mutationResolver) Login(ctx context.Context, email string, password str
 	}
 	return &model.Token{
 		AccessToken: &token,
-		User: user,
+		User:        &user,
 	}, nil
 }
 
@@ -101,263 +110,472 @@ func (r *mutationResolver) Login(ctx context.Context, email string, password str
 func (r *mutationResolver) Register(ctx context.Context, input model.CreateUserInput) (*model.Token, error) {
 	hashedPassword, err := utils.HashPassword(input.Password)
 	if err != nil {
-		log.Printf("error while hashing password %v", err)
-		return nil, errors.New("something went wrong")
+		utils.Log.Err(err).Msg("error while hashing password")
+		return nil, ErrSomethingWrong
 	}
-	now := time.Now().UTC()
-	user := &model.User{
-		ID:             uuid.New(),
+	now := time.Now()
+	userParams := pg.CreateUserParams{
+		LastJoinAt:     now,
 		Username:       input.Username,
 		HashedPassword: hashedPassword,
 		Email:          input.Email,
 		Phone:          input.Phone,
-		Firstname:      input.Firstname,
-		Lastname:       input.Lastname,
-		Role:           *input.Role,
-		Bio:            input.Bio,
-		Avatar:         input.Avatar,
-		CreatedAt:      now,
-		UpdatedAt:      &now,
+	}
+	profileParams := pg.CreateProfileParams{
+		Firstname: input.Firstname,
+		Lastname:  input.Lastname,
+		Role:      *input.Role,
+		Bio:       input.Bio,
+		Avatar:    input.Avatar,
 	}
 
-	tx, err := r.UsersRepo.DB.Begin()
+	user, err := r.Repository.CreateUser(ctx, userParams, profileParams)
 	if err != nil {
-		log.Printf("error while creating transaction: %v", err)
-		return nil, errors.New("something went wrong")
-	}
-	defer tx.Rollback()
-
-	_, err = r.UsersRepo.CreateUser(tx, user)
-	if err != nil {
-		log.Printf("error while creating user, %v", err)
+		utils.Log.Err(err).Msg("error while creating user")
 		if strings.Contains(err.Error(), "duplicate key") {
-			return nil, fmt.Errorf("user already exists")
+			return nil, errors.New("user already exists")
 		}
-		return nil, errors.New("someting went wrong")
-	}
-	if err := tx.Commit(); err != nil {
-		log.Printf("error committing transaction: %v", err)
-		return nil, errors.New("someting went wrong")
+		return nil, ErrSomethingWrong
 	}
 
 	token, err := utils.JwtGenerate(user.ID)
 	if err != nil {
-		log.Printf("error while generate token: %v", err)
-		return nil, errors.New("something went wrong")
+		utils.Log.Err(err).Msg("error while generate token")
+		return nil, ErrSomethingWrong
 	}
 
 	return &model.Token{
 		AccessToken: &token,
-		User: user,
+		User:        user,
 	}, nil
 }
 
-// CreateIcon is the resolver for the createIcon field.
-func (r *mutationResolver) CreateIcon(ctx context.Context, input model.CreateIconInput) (*model.Icon, error) {
-	iconType := "term"
-	icon := &model.Icon{
-		ID:        uuid.New(),
-		Name:      input.Name,
-		URL:       input.URL,
-		Type:      &iconType,
-		CreatedAt: time.Time{},
-		UpdatedAt: &time.Time{},
-	}
-	return icon, nil
-}
-
-// CreateCategory is the resolver for the createCategory field.
-func (r *mutationResolver) CreateCategory(ctx context.Context, input model.CreateCategoryInput) (*model.Category, error) {
-	now := time.Now().UTC()
-	category := &model.Category{
-		ID:        uuid.New(),
-		Name:      input.Name,
-		Type:      input.Type,
-		IconId:    input.IconID,
-		ParentId:  input.ParentID,
-		CreatedAt: now,
-		UpdatedAt: &now,
-	}
-	_, err := r.CategoriesRepo.CreateCategory(category)
-	return category, err
-}
-
-// CreateEvent is the resolver for the createEvent field.
-func (r *mutationResolver) CreateEvent(ctx context.Context, input model.CreateEventInput) (*model.Event, error) {
-	event := &model.Event{
-		ID:          uuid.New(),
-		Name:        input.Name,
-		Description: input.Description,
-		IconId:      input.IconID,
-		Background:  new(string),
-		CreatedAt:   time.Time{},
-		UpdatedAt:   &time.Time{},
-	}
-	return event, nil
-}
-
-// CreateBudget is the resolver for the createBudget field.
-func (r *mutationResolver) CreateBudget(ctx context.Context, input model.CreateBudgetInput) (*model.Budget, error) {
+// UpdateAccount is the resolver for the updateAccount field.
+func (r *mutationResolver) UpdateAccount(ctx context.Context, input model.UpdateAccountInput) (*model.Token, error) {
+	userInCtx, _ := middleware.GetUserFromContext(ctx)
 	now := time.Now()
-	budget := &model.Budget{
-		ID:          uuid.New(),
-		Name:        input.Name,
-		Description: input.Description,
-		Balance:     input.Balance,
-		IconId:      input.IconID,
-		RoomId:      input.RoomID,
-		MemberIds:   input.MemberIDs,
-		CreatedAt:   now,
-		UpdatedAt:   &now,
+	params := pg.UpdateUserParams{
+		ID:         userInCtx.ID,
+		LastJoinAt: &now,
+		Username:   input.Username,
+		Email:      input.Email,
+		Phone:      input.Phone,
 	}
-	_, err := r.BudgetsRepo.CreateBudget(budget)
-	return budget, err
-}
-
-// CreateTransaction is the resolver for the createTransaction field.
-func (r *mutationResolver) CreateTransaction(ctx context.Context, input model.CreateTransInput) (*model.Transaction, error) {
-	transaction := &model.Transaction{
-		ID:          uuid.New(),
-		CategoryId:  input.CategoryID,
-		Description: input.Description,
-		Time:        time.Time{},
-		BudgetId:    input.BudgetID,
-		CreatorIds:  input.CreatorIDs,
-		PartnerIds:  input.PartnerIDs,
-		EventId:     input.EventID,
-		Images:      []string{},
-		CreatedAt:   time.Time{},
-		UpdatedAt:   &time.Time{},
+	if input.Password != nil {
+		hp, err := utils.HashPassword(*input.Password)
+		if err != nil {
+			utils.Log.Err(err).Msg("error while hashing password")
+			return nil, ErrSomethingWrong
+		}
+		params.HashedPassword = &hp
 	}
-	return transaction, nil
-}
-
-// UpdateBudget is the resolver for the updateBudget field.
-func (r *mutationResolver) UpdateBudget(ctx context.Context, id uuid.UUID, input model.UpdateBudgetInput) (*model.Budget, error) {
-	budget, err := r.BudgetsRepo.GetBudgetByID(id)
-	if err != nil || budget == nil {
-		return nil, errors.New("budget not exist")
-	}
-	didUpdate := false
-	if input.Name != nil {
-		budget.Name = *input.Name
-		didUpdate = true
-	}
-	if input.Description != nil {
-		*budget.Description = *input.Description
-		didUpdate = true
-	}
-	if input.Balance != nil {
-		budget.Balance = *input.Balance
-		didUpdate = true
-	}
-	if input.IconID != nil {
-		budget.IconId = *input.IconID
-		didUpdate = true
-	}
-	if input.MemberIDs != nil {
-		budget.MemberIds = input.MemberIDs
-		didUpdate = true
-	}
-	if !didUpdate {
-		return nil, errors.New("no any changes")
-	}
-	now := time.Now().UTC()
-	budget.UpdatedAt = &now
-	_, err = r.BudgetsRepo.UpdateBudget(budget)
+	user, err := r.Repository.UpdateUser(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("error while updating budget: %v", err)
+		utils.Log.Err(err)
+		return nil, errors.New("cannot update account")
 	}
-	return budget, nil
+	token, err := utils.JwtGenerate(user.ID)
+	if err != nil {
+		utils.Log.Err(err).Msg("error while generate token")
+		return nil, ErrSomethingWrong
+	}
+
+	return &model.Token{
+		AccessToken: &token,
+		User:        &user,
+	}, nil
 }
 
-// DeleteBudget is the resolver for the deleteBudget field.
-func (r *mutationResolver) DeleteBudget(ctx context.Context, id uuid.UUID) (bool, error) {
-	budget, err := r.BudgetsRepo.GetBudgetByID(id)
-	if err != nil || budget == nil {
-		return false, errors.New("budget not exist")
+// UpdateProfile is the resolver for the updateProfile field.
+func (r *mutationResolver) UpdateProfile(ctx context.Context, input model.UpdateProfileInput) (*pg.Profile, error) {
+	role := pg.NullUserRole{}
+	if input.Role != nil {
+		role.UserRole = *input.Role
+		role.Valid = true
 	}
-	err = r.BudgetsRepo.DeleteBudget(budget)
+	profileInCtx, _ := middleware.GetProfileFromContext(ctx)
+	profile, err := r.Repository.UpdateProfile(ctx, pg.UpdateProfileParams{
+		ID:        profileInCtx.ID,
+		Role:      role,
+		Firstname: input.Firstname,
+		Lastname:  input.Lastname,
+		Dob:       input.Dob,
+		Bio:       input.Bio,
+		Avatar:    input.Avatar,
+	})
 	if err != nil {
-		return false, fmt.Errorf("error while deleting budget %v", err)
+		utils.Log.Err(err).Send()
+		return nil, errors.New("cannot update profile")
+	}
+	return &profile, nil
+}
+
+// DeleteAccount is the resolver for the deleteAccount field.
+func (r *mutationResolver) DeleteAccount(ctx context.Context) (bool, error) {
+	userInCtx, _ := middleware.GetUserFromContext(ctx)
+	err := r.Repository.DeleteUser(ctx, userInCtx.ID)
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return false, ErrCannotDelete
 	}
 	return true, nil
 }
 
-// Users is the resolver for the users field.
-func (r *queryResolver) Users(ctx context.Context, role model.UserRoleEnum) ([]*model.User, error) {
-	return r.UsersRepo.GetUsers()
-}
-
-// Categories is the resolver for the categories field.
-func (r *queryResolver) Categories(ctx context.Context, filter *model.BudgetFilter, limit *int, offset *int) ([]*model.Category, error) {
-	return r.CategoriesRepo.GetCategories(filter, limit, offset)
-}
-
-// Budgets is the resolver for the budgets field.
-func (r *queryResolver) Budgets(ctx context.Context) ([]*model.Budget, error) {
-	return r.BudgetsRepo.GetBudgets()
-}
-
-// Captain is the resolver for the captain field.
-func (r *roomResolver) Captain(ctx context.Context, obj *model.Room) (*model.User, error) {
-	return r.UsersRepo.GetUserByID(obj.CaptainId)
-}
-
-// Category is the resolver for the category field.
-func (r *transactionResolver) Category(ctx context.Context, obj *model.Transaction) (*model.Category, error) {
-	category, err := r.CategoriesRepo.GetCategoryByID(obj.CategoryId)
+// CreateIcon is the resolver for the createIcon field.
+func (r *mutationResolver) CreateIcon(ctx context.Context, input model.CreateIconInput) (*pg.Icon, error) {
+	iconType := "Term"
+	icon, err := r.Repository.CreateIcon(ctx, pg.CreateIconParams{
+		Name: input.Name,
+		Url:  input.URL,
+		Type: &iconType,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("not found transaction's category: %d", obj.CategoryId)
+		utils.Log.Err(err).Send()
+		return nil, err
 	}
-	return category, nil
+	return &icon, nil
 }
 
-// Budget is the resolver for the budget field.
-func (r *transactionResolver) Budget(ctx context.Context, obj *model.Transaction) (*model.Budget, error) {
-	budget, err := r.BudgetsRepo.GetBudgetByID(obj.BudgetId)
+// CreateEvent is the resolver for the createEvent field.
+func (r *mutationResolver) CreateEvent(ctx context.Context, input model.CreateEventInput) (*pg.Event, error) {
+	event, err := r.Repository.CreateEvent(ctx, pg.CreateEventParams{
+		Name:        input.Name,
+		Description: input.Description,
+		IconID:      input.IconID,
+		Background:  *input.Background,
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("not found transaction's budget: %v", obj.BudgetId)
+		utils.Log.Err(err).Msg("error while create event")
+		return nil, ErrSomethingWrong
+	}
+	return &event, nil
+}
+
+// CreateCategory is the resolver for the createCategory field.
+func (r *mutationResolver) CreateCategory(ctx context.Context, input model.CreateCategoryInput) (*pg.Category, error) {
+	parentID := uuid.NullUUID{}
+	if input.ParentID != nil {
+		parentID.UUID = *input.ParentID
+		parentID.Valid = true
+	}
+	category, err := r.Repository.CreateCategory(ctx, pg.CreateCategoryParams{
+		Name:     input.Name,
+		Type:     input.Type,
+		IconID:   input.IconID,
+		ParentID: parentID,
+	})
+
+	if err != nil {
+		utils.Log.Err(err).Msg("error while create event")
+		return nil, ErrSomethingWrong
+	}
+	return &category, nil
+}
+
+// CreateRoom is the resolver for the createRoom field.
+func (r *mutationResolver) CreateRoom(ctx context.Context, input model.CreateRoomInput) (*pg.Room, error) {
+	room, err := r.Repository.CreateRoom(ctx, pg.CreateRoomParams{
+		Name:       input.Name,
+		Address:    &input.Address,
+		Avatar:     input.Avatar,
+		Background: input.Background,
+	}, input.AdminID, input.Members)
+
+	if err != nil {
+		utils.Log.Err(err).Msg("error while create room")
+		return nil, ErrSomethingWrong
+	}
+	return room, nil
+}
+
+// UpdateRoom is the resolver for the updateRoom field.
+func (r *mutationResolver) UpdateRoom(ctx context.Context, id uuid.UUID, input model.UpdateRoomInput) (*pg.Room, error) {
+	room, err := r.Repository.UpdateRoom(ctx, pg.UpdateRoomParams{
+		ID:         id,
+		Name:       input.Name,
+		Address:    input.Address,
+		Avatar:     input.Avatar,
+		Background: input.Background,
+	}, input.AdminID, input.Members)
+
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, errors.New("cannot update room")
+	}
+	return room, nil
+}
+
+// CreateTransaction is the resolver for the createTransaction field.
+func (r *mutationResolver) CreateTransaction(ctx context.Context, input model.CreateTranInput) (*pg.Transaction, error) {
+	amount, err := pg.Float64ToNumberic(&input.Amount)
+	if err != nil {
+		utils.Log.Err(err).Msg("amount invalid")
+		return nil, errors.New("amount invalid")
+	}
+
+	tran, err := r.Repository.CreateTransaction(ctx, pg.CreateTransactionParams{
+		CategoryID:  input.CategoryID,
+		BudgetID:    pg.UUIDPtrToNullUUID(input.BudgetID),
+		EventID:     pg.UUIDPtrToNullUUID(input.EventID),
+		ExcTime:     input.ExcTime,
+		Description: input.Description,
+		Amount:      amount,
+		Images:      input.Images,
+	}, input.CreatorIDs, input.PartnerIDs)
+
+	if err != nil {
+		utils.Log.Err(err).Msg("error while create event")
+		return nil, ErrSomethingWrong
+	}
+	return tran, nil
+}
+
+// UpdateTransaction is the resolver for the updateTransaction field.
+func (r *mutationResolver) UpdateTransaction(ctx context.Context, id uuid.UUID, input model.UpdateTranInput) (*pg.Transaction, error) {
+	amount, err := pg.Float64ToNumberic(input.Amount)
+	if err != nil {
+		utils.Log.Err(err).Msg("amount invalid")
+		return nil, errors.New("amount invalid")
+	}
+	tran, err := r.Repository.UpdateTransaction(ctx, pg.UpdateTransactionParams{
+		ID:          id,
+		CategoryID:  pg.UUIDPtrToNullUUID(input.CategoryID),
+		BudgetID:    pg.UUIDPtrToNullUUID(input.BudgetID),
+		EventID:     pg.UUIDPtrToNullUUID(input.EventID),
+		ExcTime:     input.ExcTime,
+		Description: input.Description,
+		Amount:      amount,
+		Images:      input.Images,
+	}, input.CreatorIDs, input.PartnerIDs)
+
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, errors.New("cannot update transaction")
+	}
+	return tran, nil
+}
+
+// DeleteTransaction is the resolver for the deleteTransaction field.
+func (r *mutationResolver) DeleteTransaction(ctx context.Context, id uuid.UUID) (bool, error) {
+	err := r.Repository.DeleteTransaction(ctx, id)
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return false, ErrSomethingWrong
+	}
+	return true, nil
+}
+
+// CreateBudget is the resolver for the createBudget field.
+func (r *mutationResolver) CreateBudget(ctx context.Context, input model.CreateBudgetInput) (*pg.Budget, error) {
+	amount, err := pg.Float64ToNumberic(&input.Amount)
+	if err != nil {
+		utils.Log.Err(err).Msg("amount invalid")
+		return nil, errors.New("amount invalid")
+	}
+	period := pg.NullPeriodType{}
+	if input.Period != nil {
+		period.PeriodType = *input.Period
+		period.Valid = true
+	}
+	budget, err := r.Repository.CreateBudget(ctx, pg.CreateBudgetParams{
+		Name:        input.Name,
+		Description: input.Description,
+		Amount:      amount,
+		IconID:      input.IconID,
+		RoomID:      pg.UUIDPtrToNullUUID(input.RoomID),
+		Period:      period,
+		StartDate:   input.StartDate,
+		EndDate:     input.EndDate,
+	}, input.MemberIDs)
+
+	if err != nil {
+		utils.Log.Err(err).Msg("error while create budget")
+		return nil, ErrSomethingWrong
 	}
 	return budget, nil
 }
 
-// Creators is the resolver for the creators field.
-func (r *transactionResolver) Creators(ctx context.Context, obj *model.Transaction) ([]*model.User, error) {
-	var creators []*model.User
-
-	for _, creatorId := range obj.CreatorIds {
-		creator, err := r.UsersRepo.GetUserByID(creatorId)
-		if err != nil {
-			creators = append(creators, creator)
-		}
+// UpdateBudget is the resolver for the updateBudget field.
+func (r *mutationResolver) UpdateBudget(ctx context.Context, id uuid.UUID, input model.UpdateBudgetInput) (*pg.Budget, error) {
+	amount, err := pg.Float64ToNumberic(input.Amount)
+	if err != nil {
+		utils.Log.Err(err).Msg("amount invalid")
+		return nil, errors.New("amount invalid")
 	}
-	return creators, nil
+	period := pg.NullPeriodType{}
+	if input.Period != nil {
+		period.PeriodType = *input.Period
+		period.Valid = true
+	}
+	budget, err := r.Repository.UpdateBudget(ctx, pg.UpdateBudgetParams{
+		ID:          id,
+		Name:        input.Name,
+		Description: input.Description,
+		Amount:      amount,
+		IconID:      pg.UUIDPtrToNullUUID(input.IconID),
+		RoomID:      pg.UUIDPtrToNullUUID(input.RoomID),
+		Period:      period,
+		StartDate:   input.StartDate,
+		EndDate:     input.EndDate,
+	}, input.MemberIDs)
+
+	if err != nil {
+		utils.Log.Err(err).Msg("cannot update budget")
+		return nil, ErrSomethingWrong
+	}
+	return budget, err
 }
 
-// Partners is the resolver for the partners field.
-func (r *transactionResolver) Partners(ctx context.Context, obj *model.Transaction) ([]*model.User, error) {
-	var partners []*model.User
-
-	for _, partnerId := range obj.PartnerIds {
-		partner, err := r.UsersRepo.GetUserByID(partnerId)
-		if err != nil {
-			partners = append(partners, partner)
-		}
+// DeleteBudget is the resolver for the deleteBudget field.
+func (r *mutationResolver) DeleteBudget(ctx context.Context, id uuid.UUID) (bool, error) {
+	err := r.Repository.DeleteBudget(ctx, id)
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return false, ErrCannotDelete
 	}
-	return partners, nil
+	return true, nil
+}
+
+// DeleteUser is the resolver for the deleteUser field.
+func (r *mutationResolver) DeleteUser(ctx context.Context, id uuid.UUID) (bool, error) {
+	err := r.Repository.DeleteUser(ctx, id)
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return false, ErrCannotDelete
+	}
+	return true, nil
+}
+
+// Profile is the resolver for the profile field.
+func (r *queryResolver) Profile(ctx context.Context) (*pg.User, error) {
+	return middleware.GetUserFromContext(ctx)
+}
+
+// Categories is the resolver for the categories field.
+func (r *queryResolver) Categories(ctx context.Context, filter *model.CategoryFilter, limit *int, offset *int) ([]pg.Category, error) {
+	_offset := BaseOffset
+	if offset != nil {
+		_offset = int32(*offset)
+	}
+	_limit := BaseLimit
+	if limit != nil {
+		_limit = int32(*limit)
+	}
+
+	_type := pg.NullCategoryType{}
+	if filter.Type != nil {
+		_type.CategoryType = *filter.Type
+		_type.Valid = true
+	}
+	categories, err := r.Repository.GetCategories(ctx, pg.GetCategoriesParams{
+		Offset: _offset,
+		Limit:  _limit,
+		Name:   filter.Name,
+		Type:   _type,
+	})
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, ErrSomethingWrong
+	}
+	return categories, nil
+}
+
+// Budgets is the resolver for the budgets field.
+func (r *queryResolver) Budgets(ctx context.Context, limit *int, offset *int) ([]pg.Budget, error) {
+	_offset := BaseOffset
+	if offset != nil {
+		_offset = int32(*offset)
+	}
+	_limit := BaseLimit
+	if limit != nil {
+		_limit = int32(*limit)
+	}
+
+	budgets, err := r.Repository.GetBudgets(ctx, pg.GetBudgetsParams{
+		Offset: _offset,
+		Limit:  _limit,
+	})
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, ErrSomethingWrong
+	}
+	return budgets, nil
+}
+
+// Admin is the resolver for the admin field.
+func (r *roomResolver) Admin(ctx context.Context, obj *pg.Room) (*pg.User, error) {
+	admin, err := r.Repository.GetUserByRoomRole(ctx, pg.GetUserByRoomRoleParams{
+		Role:   pg.RoomRoleAdmin,
+		RoomID: obj.ID,
+	})
+
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, ErrSomethingWrong
+	}
+	return &admin, nil
+}
+
+// Members is the resolver for the members field.
+func (r *roomResolver) Members(ctx context.Context, obj *pg.Room) ([]pg.User, error) {
+	return r.DataLoaders.Retrieve(ctx).MembersByRoomID.Load(obj.ID)
+}
+
+// Category is the resolver for the category field.
+func (r *transactionResolver) Category(ctx context.Context, obj *pg.Transaction) (*pg.Category, error) {
+	category, err := r.Repository.GetCategoryByID(ctx, obj.CategoryID)
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, ErrSomethingWrong
+	}
+	return &category, nil
+}
+
+// Budget is the resolver for the budget field.
+func (r *transactionResolver) Budget(ctx context.Context, obj *pg.Transaction) (*pg.Budget, error) {
+	if !obj.BudgetID.Valid {
+		return nil, nil
+	}
+	budget, err := r.Repository.GetBudgetByID(ctx, obj.BudgetID.UUID)
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, ErrSomethingWrong
+	}
+	return &budget, nil
 }
 
 // Event is the resolver for the event field.
-func (r *transactionResolver) Event(ctx context.Context, obj *model.Transaction) (*model.Event, error) {
-	if obj.EventId == nil {
+func (r *transactionResolver) Event(ctx context.Context, obj *pg.Transaction) (*pg.Event, error) {
+	if !obj.EventID.Valid {
 		return nil, nil
 	}
-	index := slices.IndexFunc(r.events, func(e *model.Event) bool { return e.ID == *obj.EventId })
-	if index == -1 {
-		return nil, fmt.Errorf("not found transaction's event: %v", obj.EventId)
+	event, err := r.Repository.GetEventByID(ctx, obj.EventID.UUID)
+	if err != nil {
+		utils.Log.Err(err).Send()
+		return nil, ErrSomethingWrong
 	}
-	return r.events[index], nil
+	return &event, nil
+}
+
+// Creators is the resolver for the creators field.
+func (r *transactionResolver) Creators(ctx context.Context, obj *pg.Transaction) ([]pg.User, error) {
+	return r.DataLoaders.Retrieve(ctx).CreatorsByTranID.Load(obj.ID)
+}
+
+// Partners is the resolver for the partners field.
+func (r *transactionResolver) Partners(ctx context.Context, obj *pg.Transaction) ([]pg.User, error) {
+	return r.DataLoaders.Retrieve(ctx).PartnersByTranID.Load(obj.ID)
+}
+
+// Amount is the resolver for the amount field.
+func (r *transactionResolver) Amount(ctx context.Context, obj *pg.Transaction) (float64, error) {
+	return pg.NumbericToFloat64(obj.Amount)
+}
+
+// Profile is the resolver for the profile field.
+func (r *userResolver) Profile(ctx context.Context, obj *pg.User) (*pg.Profile, error) {
+	return middleware.GetProfileFromContext(ctx)
 }
 
 // Budget returns BudgetResolver implementation.
@@ -381,6 +599,9 @@ func (r *Resolver) Room() RoomResolver { return &roomResolver{r} }
 // Transaction returns TransactionResolver implementation.
 func (r *Resolver) Transaction() TransactionResolver { return &transactionResolver{r} }
 
+// User returns UserResolver implementation.
+func (r *Resolver) User() UserResolver { return &userResolver{r} }
+
 type budgetResolver struct{ *Resolver }
 type categoryResolver struct{ *Resolver }
 type eventResolver struct{ *Resolver }
@@ -388,3 +609,4 @@ type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type roomResolver struct{ *Resolver }
 type transactionResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }

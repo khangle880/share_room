@@ -3,34 +3,35 @@
 package model
 
 import (
-	"fmt"
-	"io"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	pg "github.com/khangle880/share_room/pg/sqlc"
 )
 
 // Query Input
-type BudgetFilter struct {
-	Name        *string `json:"name,omitempty"`
-	Description *string `json:"description,omitempty"`
+type CategoryFilter struct {
+	Name *string          `json:"name,omitempty"`
+	Type *pg.CategoryType `json:"type,omitempty"`
 }
 
 type CreateBudgetInput struct {
-	Name        string      `json:"name"`
-	Description *string     `json:"description,omitempty"`
-	Balance     int         `json:"balance"`
-	IconID      uuid.UUID   `json:"iconID"`
-	RoomID      *uuid.UUID  `json:"roomID,omitempty"`
-	MemberIDs   []uuid.UUID `json:"memberIDs,omitempty"`
+	Name        string                 `json:"name"`
+	Description *string                `json:"description,omitempty"`
+	Amount      float64                `json:"Amount"`
+	IconID      uuid.UUID              `json:"iconID"`
+	RoomID      *uuid.UUID             `json:"roomID,omitempty"`
+	Period      *pg.PeriodType         `json:"period,omitempty"`
+	StartDate   time.Time              `json:"startDate"`
+	EndDate     *time.Time             `json:"end_date,omitempty"`
+	MemberIDs   []pg.BudgetMemberInput `json:"memberIDs,omitempty"`
 }
 
 type CreateCategoryInput struct {
-	Name     string           `json:"name"`
-	Type     CategoryTypeEnum `json:"type"`
-	IconID   uuid.UUID        `json:"iconID"`
-	ParentID *uuid.UUID       `json:"parentID,omitempty"`
+	Name     string          `json:"name"`
+	Type     pg.CategoryType `json:"type"`
+	IconID   uuid.UUID       `json:"iconID"`
+	ParentID *uuid.UUID      `json:"parentID,omitempty"`
 }
 
 type CreateEventInput struct {
@@ -45,11 +46,21 @@ type CreateIconInput struct {
 	URL  string `json:"url"`
 }
 
-type CreateTransInput struct {
-	CategoryID  uuid.UUID   `json:"CategoryID"`
+type CreateRoomInput struct {
+	Name       string      `json:"name"`
+	Address    string      `json:"address"`
+	AdminID    uuid.UUID   `json:"adminID"`
+	Members    []uuid.UUID `json:"members"`
+	Avatar     *string     `json:"avatar,omitempty"`
+	Background *string     `json:"background,omitempty"`
+}
+
+type CreateTranInput struct {
+	CategoryID  uuid.UUID   `json:"categoryID"`
 	Description *string     `json:"description,omitempty"`
-	Time        time.Time   `json:"time"`
-	BudgetID    uuid.UUID   `json:"budgetID"`
+	ExcTime     time.Time   `json:"excTime"`
+	BudgetID    *uuid.UUID  `json:"budgetID,omitempty"`
+	Amount      float64     `json:"Amount"`
 	CreatorIDs  []uuid.UUID `json:"creatorIDs"`
 	PartnerIDs  []uuid.UUID `json:"partnerIDs,omitempty"`
 	EventID     *uuid.UUID  `json:"eventID,omitempty"`
@@ -58,112 +69,68 @@ type CreateTransInput struct {
 
 // Input
 type CreateUserInput struct {
-	Username  string        `json:"username"`
-	Password  string        `json:"password"`
-	Email     string        `json:"email"`
-	Phone     *string       `json:"phone,omitempty"`
-	Firstname *string       `json:"firstname,omitempty"`
-	Lastname  *string       `json:"lastname,omitempty"`
-	Role      *UserRoleEnum `json:"role,omitempty"`
-	Bio       *string       `json:"bio,omitempty"`
-	Avatar    *string       `json:"avatar,omitempty"`
+	Username  string       `json:"username"`
+	Password  string       `json:"password"`
+	Email     *string      `json:"email,omitempty"`
+	Phone     *string      `json:"phone,omitempty"`
+	Firstname *string      `json:"firstname,omitempty"`
+	Lastname  *string      `json:"lastname,omitempty"`
+	Role      *pg.UserRole `json:"role,omitempty"`
+	Bio       *string      `json:"bio,omitempty"`
+	Avatar    *string      `json:"avatar,omitempty"`
 }
 
 type Token struct {
-	AccessToken  *string `json:"accessToken,omitempty"`
-	RefreshToken *string `json:"refreshToken,omitempty"`
-	User         *User   `json:"user,omitempty"`
+	AccessToken  *string  `json:"accessToken,omitempty"`
+	RefreshToken *string  `json:"refreshToken,omitempty"`
+	User         *pg.User `json:"user,omitempty"`
+}
+
+type UpdateAccountInput struct {
+	Username *string `json:"username,omitempty"`
+	Password *string `json:"password,omitempty"`
+	Email    *string `json:"email,omitempty"`
+	Phone    *string `json:"phone,omitempty"`
 }
 
 type UpdateBudgetInput struct {
-	Name        *string     `json:"name,omitempty"`
+	Name        *string                `json:"name,omitempty"`
+	Description *string                `json:"description,omitempty"`
+	Amount      *float64               `json:"Amount,omitempty"`
+	IconID      *uuid.UUID             `json:"iconID,omitempty"`
+	RoomID      *uuid.UUID             `json:"roomID,omitempty"`
+	Period      *pg.PeriodType         `json:"period,omitempty"`
+	StartDate   *time.Time             `json:"startDate,omitempty"`
+	EndDate     *time.Time             `json:"end_date,omitempty"`
+	MemberIDs   []pg.BudgetMemberInput `json:"memberIDs,omitempty"`
+}
+
+type UpdateProfileInput struct {
+	Firstname *string      `json:"firstname,omitempty"`
+	Lastname  *string      `json:"lastname,omitempty"`
+	Role      *pg.UserRole `json:"role,omitempty"`
+	Dob       *time.Time   `json:"dob,omitempty"`
+	Bio       *string      `json:"bio,omitempty"`
+	Avatar    *string      `json:"avatar,omitempty"`
+}
+
+type UpdateRoomInput struct {
+	Name       *string     `json:"name,omitempty"`
+	Address    *string     `json:"address,omitempty"`
+	AdminID    *uuid.UUID  `json:"adminID,omitempty"`
+	Members    []uuid.UUID `json:"members,omitempty"`
+	Avatar     *string     `json:"avatar,omitempty"`
+	Background *string     `json:"background,omitempty"`
+}
+
+type UpdateTranInput struct {
+	CategoryID  *uuid.UUID  `json:"categoryID,omitempty"`
 	Description *string     `json:"description,omitempty"`
-	Balance     *int        `json:"balance,omitempty"`
-	IconID      *uuid.UUID  `json:"iconID,omitempty"`
-	RoomID      *uuid.UUID  `json:"roomID,omitempty"`
-	MemberIDs   []uuid.UUID `json:"memberIDs,omitempty"`
-}
-
-type CategoryTypeEnum string
-
-const (
-	CategoryTypeEnumIncome  CategoryTypeEnum = "INCOME"
-	CategoryTypeEnumOutcome CategoryTypeEnum = "OUTCOME"
-)
-
-var AllCategoryTypeEnum = []CategoryTypeEnum{
-	CategoryTypeEnumIncome,
-	CategoryTypeEnumOutcome,
-}
-
-func (e CategoryTypeEnum) IsValid() bool {
-	switch e {
-	case CategoryTypeEnumIncome, CategoryTypeEnumOutcome:
-		return true
-	}
-	return false
-}
-
-func (e CategoryTypeEnum) String() string {
-	return string(e)
-}
-
-func (e *CategoryTypeEnum) UnmarshalGQL(v interface{}) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = CategoryTypeEnum(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid CategoryTypeEnum", str)
-	}
-	return nil
-}
-
-func (e CategoryTypeEnum) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-type UserRoleEnum string
-
-const (
-	UserRoleEnumAdmin    UserRoleEnum = "ADMIN"
-	UserRoleEnumRoommate UserRoleEnum = "ROOMMATE"
-	UserRoleEnumCaptain  UserRoleEnum = "CAPTAIN"
-)
-
-var AllUserRoleEnum = []UserRoleEnum{
-	UserRoleEnumAdmin,
-	UserRoleEnumRoommate,
-	UserRoleEnumCaptain,
-}
-
-func (e UserRoleEnum) IsValid() bool {
-	switch e {
-	case UserRoleEnumAdmin, UserRoleEnumRoommate, UserRoleEnumCaptain:
-		return true
-	}
-	return false
-}
-
-func (e UserRoleEnum) String() string {
-	return string(e)
-}
-
-func (e *UserRoleEnum) UnmarshalGQL(v interface{}) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = UserRoleEnum(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid UserRoleEnum", str)
-	}
-	return nil
-}
-
-func (e UserRoleEnum) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	ExcTime     *time.Time  `json:"excTime,omitempty"`
+	BudgetID    *uuid.UUID  `json:"budgetID,omitempty"`
+	Amount      *float64    `json:"Amount,omitempty"`
+	CreatorIDs  []uuid.UUID `json:"creatorIDs,omitempty"`
+	PartnerIDs  []uuid.UUID `json:"partnerIDs,omitempty"`
+	EventID     *uuid.UUID  `json:"eventID,omitempty"`
+	Images      []string    `json:"images,omitempty"`
 }

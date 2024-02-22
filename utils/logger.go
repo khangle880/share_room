@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"runtime/debug"
@@ -13,22 +14,27 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+var baseOnce sync.Once
 var once sync.Once
-var log zerolog.Logger
+var baseLog zerolog.Logger
+var Log zerolog.Logger
 
-func Get() zerolog.Logger {
-	once.Do(func() {
+func GetBaseLog() *zerolog.Logger {
+	baseOnce.Do(func() {
 		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 		zerolog.TimeFieldFormat = time.RFC3339
 
 		logLevel, err := strconv.Atoi(os.Getenv("LOG_LEVEL"))
 		if err != nil {
-			logLevel = int(zerolog.InfoLevel)
+			logLevel = int(zerolog.TraceLevel)
 		}
 
 		var output io.Writer = zerolog.ConsoleWriter{
-			Out:        os.Stdout,
+			Out:        os.Stderr,
 			TimeFormat: time.RFC3339,
+			FormatMessage: func(i interface{}) string {
+				return fmt.Sprintf("| %s |", i)
+			},
 			FieldsExclude: []string{
 				"user_agent",
 				"git_revision",
@@ -48,6 +54,13 @@ func Get() zerolog.Logger {
 			output = zerolog.MultiLevelWriter(os.Stderr, filelogger)
 		}
 
+		baseLog = zerolog.New(output).Level(zerolog.Level(logLevel)).With().Timestamp().Logger()
+	})
+	return &baseLog
+}
+
+func GetLog() *zerolog.Logger {
+	once.Do(func() {
 		var gitRevision string
 		buildInfo, ok := debug.ReadBuildInfo()
 		if ok {
@@ -59,8 +72,9 @@ func Get() zerolog.Logger {
 			}
 		}
 
-		log = zerolog.New(output).Level(zerolog.Level(logLevel)).With().Timestamp().
+		Log = GetBaseLog().With().Caller().
 			Str("git_revision", gitRevision).Str("go_version", buildInfo.GoVersion).Logger()
+		zerolog.DefaultContextLogger = &Log
 	})
-	return log
+	return &Log
 }
